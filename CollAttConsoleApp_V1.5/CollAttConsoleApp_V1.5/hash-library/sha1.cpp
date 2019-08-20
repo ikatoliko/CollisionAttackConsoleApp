@@ -33,37 +33,36 @@ void SHA1::reset()
   m_hash[4] = 0xc3d2e1f0;
 }
 
-
 namespace
 {
   // mix functions for processBlock()
-  inline uint32_t f1(uint32_t b, uint32_t c, uint32_t d)
+  inline uint32_t f1_sha1(uint32_t b, uint32_t c, uint32_t d)
   {
     return d ^ (b & (c ^ d)); // original: f = (b & c) | ((~b) & d);
   }
 
-  inline uint32_t f2(uint32_t b, uint32_t c, uint32_t d)
+  inline uint32_t f2_sha1(uint32_t b, uint32_t c, uint32_t d)
   {
     return b ^ c ^ d;
   }
 
-  inline uint32_t f3(uint32_t b, uint32_t c, uint32_t d)
+  inline uint32_t f3_sha1(uint32_t b, uint32_t c, uint32_t d)
   {
     return (b & c) | (b & d) | (c & d);
   }
 
-  inline uint32_t rotate(uint32_t a, uint32_t c)
+  inline uint32_t rotate_sha1(uint32_t a, uint32_t c)
   {
     return (a << c) | (a >> (32 - c));
   }
 
-  inline uint32_t swap(uint32_t x)
+  inline uint32_t swap_sha1(uint32_t x)
   {
 #if defined(__GNUC__) || defined(__clang__)
-    return __builtin_bswap32(x);
+    return __builtin_bswap_sha132(x);
 #endif
 #ifdef MSC_VER
-    return _byteswap_ulong(x);
+    return _byteswap_sha1_ulong(x);
 #endif
 
     return (x >> 24) |
@@ -92,55 +91,55 @@ void SHA1::processBlock(const void* data)
 #if defined(__BYTE_ORDER) && (__BYTE_ORDER != 0) && (__BYTE_ORDER == __BIG_ENDIAN)
     words[i] = input[i];
 #else
-    words[i] = swap(input[i]);
+    words[i] = swap_sha1(input[i]);
 #endif
 
   // extend to 80 words
   for (int i = 16; i < 80; i++)
-    words[i] = rotate(words[i-3] ^ words[i-8] ^ words[i-14] ^ words[i-16], 1);
+    words[i] = rotate_sha1(words[i-3] ^ words[i-8] ^ words[i-14] ^ words[i-16], 1);
 
   // first round
   for (int i = 0; i < 4; i++)
   {
     int offset = 5*i;
-    e += rotate(a,5) + f1(b,c,d) + words[offset  ] + 0x5a827999; b = rotate(b,30);
-    d += rotate(e,5) + f1(a,b,c) + words[offset+1] + 0x5a827999; a = rotate(a,30);
-    c += rotate(d,5) + f1(e,a,b) + words[offset+2] + 0x5a827999; e = rotate(e,30);
-    b += rotate(c,5) + f1(d,e,a) + words[offset+3] + 0x5a827999; d = rotate(d,30);
-    a += rotate(b,5) + f1(c,d,e) + words[offset+4] + 0x5a827999; c = rotate(c,30);
+    e += rotate_sha1(a,5) + f1_sha1(b,c,d) + words[offset  ] + 0x5a827999; b = rotate_sha1(b,30);
+    d += rotate_sha1(e,5) + f1_sha1(a,b,c) + words[offset+1] + 0x5a827999; a = rotate_sha1(a,30);
+    c += rotate_sha1(d,5) + f1_sha1(e,a,b) + words[offset+2] + 0x5a827999; e = rotate_sha1(e,30);
+    b += rotate_sha1(c,5) + f1_sha1(d,e,a) + words[offset+3] + 0x5a827999; d = rotate_sha1(d,30);
+    a += rotate_sha1(b,5) + f1_sha1(c,d,e) + words[offset+4] + 0x5a827999; c = rotate_sha1(c,30);
   }
 
   // second round
   for (int i = 4; i < 8; i++)
   {
     int offset = 5*i;
-    e += rotate(a,5) + f2(b,c,d) + words[offset  ] + 0x6ed9eba1; b = rotate(b,30);
-    d += rotate(e,5) + f2(a,b,c) + words[offset+1] + 0x6ed9eba1; a = rotate(a,30);
-    c += rotate(d,5) + f2(e,a,b) + words[offset+2] + 0x6ed9eba1; e = rotate(e,30);
-    b += rotate(c,5) + f2(d,e,a) + words[offset+3] + 0x6ed9eba1; d = rotate(d,30);
-    a += rotate(b,5) + f2(c,d,e) + words[offset+4] + 0x6ed9eba1; c = rotate(c,30);
+    e += rotate_sha1(a,5) + f2_sha1(b,c,d) + words[offset  ] + 0x6ed9eba1; b = rotate_sha1(b,30);
+    d += rotate_sha1(e,5) + f2_sha1(a,b,c) + words[offset+1] + 0x6ed9eba1; a = rotate_sha1(a,30);
+    c += rotate_sha1(d,5) + f2_sha1(e,a,b) + words[offset+2] + 0x6ed9eba1; e = rotate_sha1(e,30);
+    b += rotate_sha1(c,5) + f2_sha1(d,e,a) + words[offset+3] + 0x6ed9eba1; d = rotate_sha1(d,30);
+    a += rotate_sha1(b,5) + f2_sha1(c,d,e) + words[offset+4] + 0x6ed9eba1; c = rotate_sha1(c,30);
   }
 
   // third round
   for (int i = 8; i < 12; i++)
   {
     int offset = 5*i;
-    e += rotate(a,5) + f3(b,c,d) + words[offset  ] + 0x8f1bbcdc; b = rotate(b,30);
-    d += rotate(e,5) + f3(a,b,c) + words[offset+1] + 0x8f1bbcdc; a = rotate(a,30);
-    c += rotate(d,5) + f3(e,a,b) + words[offset+2] + 0x8f1bbcdc; e = rotate(e,30);
-    b += rotate(c,5) + f3(d,e,a) + words[offset+3] + 0x8f1bbcdc; d = rotate(d,30);
-    a += rotate(b,5) + f3(c,d,e) + words[offset+4] + 0x8f1bbcdc; c = rotate(c,30);
+    e += rotate_sha1(a,5) + f3_sha1(b,c,d) + words[offset  ] + 0x8f1bbcdc; b = rotate_sha1(b,30);
+    d += rotate_sha1(e,5) + f3_sha1(a,b,c) + words[offset+1] + 0x8f1bbcdc; a = rotate_sha1(a,30);
+    c += rotate_sha1(d,5) + f3_sha1(e,a,b) + words[offset+2] + 0x8f1bbcdc; e = rotate_sha1(e,30);
+    b += rotate_sha1(c,5) + f3_sha1(d,e,a) + words[offset+3] + 0x8f1bbcdc; d = rotate_sha1(d,30);
+    a += rotate_sha1(b,5) + f3_sha1(c,d,e) + words[offset+4] + 0x8f1bbcdc; c = rotate_sha1(c,30);
   }
 
   // fourth round
   for (int i = 12; i < 16; i++)
   {
     int offset = 5*i;
-    e += rotate(a,5) + f2(b,c,d) + words[offset  ] + 0xca62c1d6; b = rotate(b,30);
-    d += rotate(e,5) + f2(a,b,c) + words[offset+1] + 0xca62c1d6; a = rotate(a,30);
-    c += rotate(d,5) + f2(e,a,b) + words[offset+2] + 0xca62c1d6; e = rotate(e,30);
-    b += rotate(c,5) + f2(d,e,a) + words[offset+3] + 0xca62c1d6; d = rotate(d,30);
-    a += rotate(b,5) + f2(c,d,e) + words[offset+4] + 0xca62c1d6; c = rotate(c,30);
+    e += rotate_sha1(a,5) + f2_sha1(b,c,d) + words[offset  ] + 0xca62c1d6; b = rotate_sha1(b,30);
+    d += rotate_sha1(e,5) + f2_sha1(a,b,c) + words[offset+1] + 0xca62c1d6; a = rotate_sha1(a,30);
+    c += rotate_sha1(d,5) + f2_sha1(e,a,b) + words[offset+2] + 0xca62c1d6; e = rotate_sha1(e,30);
+    b += rotate_sha1(c,5) + f2_sha1(d,e,a) + words[offset+3] + 0xca62c1d6; d = rotate_sha1(d,30);
+    a += rotate_sha1(b,5) + f2_sha1(c,d,e) + words[offset+4] + 0xca62c1d6; c = rotate_sha1(c,30);
   }
 
   // update hash
