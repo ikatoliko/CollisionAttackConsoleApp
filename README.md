@@ -1,5 +1,5 @@
 # CollisionAttackConsoleApp (C++)
-Generation of messages and searching for collisions of its hashes.
+Generation of messages and searching for collisions of their hashes.
 
 For educational purpose.
 
