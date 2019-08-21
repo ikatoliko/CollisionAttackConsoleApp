@@ -318,7 +318,7 @@ namespace
       0x2C8E0FFF,0xE0240F61,0x6EAB0882,0xA201081C,0xA8C40105,0x646E019B,0xEAE10678,0x264B06E6 }
   };
 
-  inline uint32_t swap(uint32_t x)
+  inline uint32_t swap_crc32(uint32_t x)
   {
 #if defined(__GNUC__) || defined(__clang__)
     return __builtin_bswap32(x);
@@ -345,7 +345,7 @@ void CRC32::add(const void* data, size_t numBytes)
   while (numBytes >= 8)
   {
 #if defined(__BYTE_ORDER) && (__BYTE_ORDER != 0) && (__BYTE_ORDER == __BIG_ENDIAN)
-    uint32_t one = *current++ ^ swap(crc);
+    uint32_t one = *current++ ^ swap_crc32(crc);
     uint32_t two = *current++;
     crc  = crc32Lookup[7][ one>>24        ] ^
            crc32Lookup[6][(one>>16) & 0xFF] ^

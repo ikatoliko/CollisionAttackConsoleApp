@@ -36,7 +36,7 @@ void Keccak::reset()
 namespace
 {
   const unsigned int KeccakRounds = 24;
-  const uint64_t XorMasks[KeccakRounds] =
+  const uint64_t XorMasksKeccak[KeccakRounds] =
   {
     0x0000000000000001ULL, 0x0000000000008082ULL, 0x800000000000808aULL,
     0x8000000080008000ULL, 0x000000000000808bULL, 0x0000000080000001ULL,
@@ -49,16 +49,16 @@ namespace
   };
 
   /// rotate left and wrap around to the right
-  inline uint64_t rotateLeft(uint64_t x, uint8_t numBits)
+  inline uint64_t rotateLeftKeccak(uint64_t x, uint8_t numBits)
   {
     return (x << numBits) | (x >> (64 - numBits));
   }
 
   /// convert litte vs big endian
-  inline uint64_t swap(uint64_t x)
+  inline uint64_t swapKeccak(uint64_t x)
   {
 #if defined(__GNUC__) || defined(__clang__)
-    return __builtin_bswap64(x);
+    return __builtin_bswapKeccak64(x);
 #endif
 #ifdef _MSC_VER
     return _byteswap_uint64(x);
@@ -76,7 +76,7 @@ namespace
 
 
   /// return x % 5 for 0 <= x <= 9
-  unsigned int mod5(unsigned int x)
+  unsigned int mod5Keccak(unsigned int x)
   {
     if (x < 5)
       return x;
@@ -90,7 +90,7 @@ namespace
 void Keccak::processBlock(const void* data)
 {
 #if defined(__BYTE_ORDER) && (__BYTE_ORDER != 0) && (__BYTE_ORDER == __BIG_ENDIAN)
-#define LITTLEENDIAN(x) swap(x)
+#define LITTLEENDIAN(x) swapKeccak(x)
 #else
 #define LITTLEENDIAN(x) (x)
 #endif
@@ -110,7 +110,7 @@ void Keccak::processBlock(const void* data)
 
     for (unsigned int i = 0; i < 5; i++)
     {
-      uint64_t one = coefficients[mod5(i + 4)] ^ rotateLeft(coefficients[mod5(i + 1)], 1);
+      uint64_t one = coefficients[mod5Keccak(i + 4)] ^ rotateLeftKeccak(coefficients[mod5Keccak(i + 1)], 1);
       m_hash[i     ] ^= one;
       m_hash[i +  5] ^= one;
       m_hash[i + 10] ^= one;
@@ -123,30 +123,30 @@ void Keccak::processBlock(const void* data)
 
     // Rho Pi
     uint64_t last = m_hash[1];
-    one = m_hash[10]; m_hash[10] = rotateLeft(last,  1); last = one;
-    one = m_hash[ 7]; m_hash[ 7] = rotateLeft(last,  3); last = one;
-    one = m_hash[11]; m_hash[11] = rotateLeft(last,  6); last = one;
-    one = m_hash[17]; m_hash[17] = rotateLeft(last, 10); last = one;
-    one = m_hash[18]; m_hash[18] = rotateLeft(last, 15); last = one;
-    one = m_hash[ 3]; m_hash[ 3] = rotateLeft(last, 21); last = one;
-    one = m_hash[ 5]; m_hash[ 5] = rotateLeft(last, 28); last = one;
-    one = m_hash[16]; m_hash[16] = rotateLeft(last, 36); last = one;
-    one = m_hash[ 8]; m_hash[ 8] = rotateLeft(last, 45); last = one;
-    one = m_hash[21]; m_hash[21] = rotateLeft(last, 55); last = one;
-    one = m_hash[24]; m_hash[24] = rotateLeft(last,  2); last = one;
-    one = m_hash[ 4]; m_hash[ 4] = rotateLeft(last, 14); last = one;
-    one = m_hash[15]; m_hash[15] = rotateLeft(last, 27); last = one;
-    one = m_hash[23]; m_hash[23] = rotateLeft(last, 41); last = one;
-    one = m_hash[19]; m_hash[19] = rotateLeft(last, 56); last = one;
-    one = m_hash[13]; m_hash[13] = rotateLeft(last,  8); last = one;
-    one = m_hash[12]; m_hash[12] = rotateLeft(last, 25); last = one;
-    one = m_hash[ 2]; m_hash[ 2] = rotateLeft(last, 43); last = one;
-    one = m_hash[20]; m_hash[20] = rotateLeft(last, 62); last = one;
-    one = m_hash[14]; m_hash[14] = rotateLeft(last, 18); last = one;
-    one = m_hash[22]; m_hash[22] = rotateLeft(last, 39); last = one;
-    one = m_hash[ 9]; m_hash[ 9] = rotateLeft(last, 61); last = one;
-    one = m_hash[ 6]; m_hash[ 6] = rotateLeft(last, 20); last = one;
-                      m_hash[ 1] = rotateLeft(last, 44);
+    one = m_hash[10]; m_hash[10] = rotateLeftKeccak(last,  1); last = one;
+    one = m_hash[ 7]; m_hash[ 7] = rotateLeftKeccak(last,  3); last = one;
+    one = m_hash[11]; m_hash[11] = rotateLeftKeccak(last,  6); last = one;
+    one = m_hash[17]; m_hash[17] = rotateLeftKeccak(last, 10); last = one;
+    one = m_hash[18]; m_hash[18] = rotateLeftKeccak(last, 15); last = one;
+    one = m_hash[ 3]; m_hash[ 3] = rotateLeftKeccak(last, 21); last = one;
+    one = m_hash[ 5]; m_hash[ 5] = rotateLeftKeccak(last, 28); last = one;
+    one = m_hash[16]; m_hash[16] = rotateLeftKeccak(last, 36); last = one;
+    one = m_hash[ 8]; m_hash[ 8] = rotateLeftKeccak(last, 45); last = one;
+    one = m_hash[21]; m_hash[21] = rotateLeftKeccak(last, 55); last = one;
+    one = m_hash[24]; m_hash[24] = rotateLeftKeccak(last,  2); last = one;
+    one = m_hash[ 4]; m_hash[ 4] = rotateLeftKeccak(last, 14); last = one;
+    one = m_hash[15]; m_hash[15] = rotateLeftKeccak(last, 27); last = one;
+    one = m_hash[23]; m_hash[23] = rotateLeftKeccak(last, 41); last = one;
+    one = m_hash[19]; m_hash[19] = rotateLeftKeccak(last, 56); last = one;
+    one = m_hash[13]; m_hash[13] = rotateLeftKeccak(last,  8); last = one;
+    one = m_hash[12]; m_hash[12] = rotateLeftKeccak(last, 25); last = one;
+    one = m_hash[ 2]; m_hash[ 2] = rotateLeftKeccak(last, 43); last = one;
+    one = m_hash[20]; m_hash[20] = rotateLeftKeccak(last, 62); last = one;
+    one = m_hash[14]; m_hash[14] = rotateLeftKeccak(last, 18); last = one;
+    one = m_hash[22]; m_hash[22] = rotateLeftKeccak(last, 39); last = one;
+    one = m_hash[ 9]; m_hash[ 9] = rotateLeftKeccak(last, 61); last = one;
+    one = m_hash[ 6]; m_hash[ 6] = rotateLeftKeccak(last, 20); last = one;
+                      m_hash[ 1] = rotateLeftKeccak(last, 44);
 
     // Chi
     for (unsigned int j = 0; j < 25; j += 5)
@@ -163,7 +163,7 @@ void Keccak::processBlock(const void* data)
     }
 
     // Iota
-    m_hash[0] ^= XorMasks[round];
+    m_hash[0] ^= XorMasksKeccak[round];
   }
 }
 

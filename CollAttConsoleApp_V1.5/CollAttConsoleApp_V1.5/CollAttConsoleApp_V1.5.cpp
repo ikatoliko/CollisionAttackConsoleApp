@@ -8,6 +8,14 @@
 #include "hash-library/sha1.cpp"
 #include "hash-library/sha256.h"
 #include "hash-library/sha256.cpp"
+#include "hash-library/sha3.h"
+#include "hash-library/sha3.cpp"
+#include "hash-library/keccak.h"
+#include "hash-library/keccak.cpp"
+#include "hash-library/md5.h"
+#include "hash-library/md5.cpp"
+#include "hash-library/crc32.h"
+#include "hash-library/crc32.cpp"
 #include <sstream>
 
 std::random_device rd;
@@ -163,25 +171,132 @@ std::pair<std::string, std::string> WeakenHash64(std::string hash, int alg) {
 	return std::pair<std::string, std::string>(weakHash, bits.to_string().substr(256 - limiter * 4));
 }
 
+std::pair<std::string, std::string> WeakenHash32(std::string hash, int alg) {
+	int bin, limiter = 32 / settings[alg];
+	std::bitset<128> bits, set;
+	for (int i = 1; i <= 32; i++) {
+		std::stringstream ss;
+		ss << std::hex << hash[i - 1];
+		ss >> bin;
+		std::bitset<128> b(bin);
+		set |= b;
+		if (!(i % limiter)) {
+			bits ^= set;
+			set.reset();
+		}
+		else set <<= 4;
+	}
+	std::string weakHash, wh;
+	if (settings[alg] < 4) {
+		std::bitset<128> bitsPartialCpy;
+		for (int i = 0; i < 4; i++) {
+			std::stringstream ss;
+			bitsPartialCpy = bits << (32 * i);
+			bitsPartialCpy >>= 96;
+			ss << std::hex << bitsPartialCpy.to_ullong();
+			ss >> wh;
+			if (wh != "0")weakHash += wh;
+		}
+	}
+	else {
+		std::stringstream ss;
+		ss << std::hex << bits.to_ullong();
+		ss >> weakHash;
+	}
+	while (weakHash.length() < limiter) weakHash.insert(0, "0");
+	return std::pair<std::string, std::string>(weakHash, bits.to_string().substr(128 - limiter * 4));
+}
+std::pair<std::string, std::string> WeakenHash8(std::string hash, int alg) {
+	int bin, limiter = 8 / settings[alg];
+	std::bitset<32> bits, set;
+	for (int i = 1; i <= 8; i++) {
+		std::stringstream ss;
+		ss << std::hex << hash[i - 1];
+		ss >> bin;
+		std::bitset<32> b(bin);
+		set |= b;
+		if (!(i % limiter)) {
+			bits ^= set;
+			set.reset();
+		}
+		else set <<= 4;
+	}
+	std::string weakHash, wh;
+	if (settings[alg] < 4) {
+		std::bitset<32> bitsPartialCpy;
+		for (int i = 0; i < 4; i++) {
+			std::stringstream ss;
+			bitsPartialCpy = bits << (8 * i);
+			bitsPartialCpy >>= 24;
+			ss << std::hex << bitsPartialCpy.to_ullong();
+			ss >> wh;
+			if (wh != "0")weakHash += wh;
+		}
+	}
+	else {
+		std::stringstream ss;
+		ss << std::hex << bits.to_ullong();
+		ss >> weakHash;
+	}
+	while (weakHash.length() < limiter) weakHash.insert(0, "0");
+	return std::pair<std::string, std::string>(weakHash, bits.to_string().substr(32 - limiter * 4));
+}
+
 Hashes GenHashes(std::string toHash) {
 	int bin, settSize = sizeof(settings)/sizeof(*settings);
 	Hashes hashes;
 	std::pair<std::string, std::string> weakHash;
 	for (int i = SHA_1; i <= settSize; i++) {
 		if (CheckIfUsingHashAlg(i)) {
-			if (i == SHA_1) {
+			switch(i) {
+			case SHA_1: {
 				SHA1 sha1;
 				hashes.sha_1 = sha1(toHash);
 				weakHash = WeakenHash40(hashes.sha_1, i);
 				hashes.sha_1H = weakHash.first;
 				hashes.sha_1B = weakHash.second;
+				break;
 			}
-			if (i == SHA_2) {
+			case SHA_2: {
 				SHA256 sha256;
 				hashes.sha_2 = sha256(toHash);
 				weakHash = WeakenHash64(hashes.sha_2, i);
 				hashes.sha_2H = weakHash.first;
 				hashes.sha_2B = weakHash.second;
+				break;
+			}
+			case SHA_3: {
+				SHA3 sha3;
+				hashes.sha_3 = sha3(toHash);
+				weakHash = WeakenHash64(hashes.sha_3, i);
+				hashes.sha_3H = weakHash.first;
+				hashes.sha_3B = weakHash.second;
+				break;
+			}
+			case KEccAK: {
+				Keccak kec;
+				hashes.kecak = kec(toHash);
+				weakHash = WeakenHash64(hashes.kecak, i);
+				hashes.kecakH = weakHash.first;
+				hashes.kecakB = weakHash.second;
+				break;
+			}
+			case MD_5: {
+				MD5 md5;
+				hashes.md_5 = md5(toHash);
+				weakHash = WeakenHash32(hashes.md_5, i);
+				hashes.md_5H = weakHash.first;
+				hashes.md_5B = weakHash.second;
+				break;
+			}
+			case CRC_32: {
+				CRC32 crc32;
+				hashes.crc_32 = crc32(toHash);
+				weakHash = WeakenHash8(hashes.crc_32, i);
+				hashes.crc_32H = weakHash.first;
+				hashes.crc_32B = weakHash.second;
+				break;
+			}
 			}
 		}
 	}
@@ -407,7 +522,30 @@ void UI(Menu* m) {
 	do {
 		if(!collider) system("cls");
 		if (m->id == GENMSG && settings[TYPE]==2) m = m->dijete; //Radi strukture stabla, preskace na dijete ako se radi o prilagodenom tipu poruke
-		if ((m->id == GENMSG || m->id == CUSTOMMSG) && !msg.empty()) std::cout <<"MSG: "<<msg << std::endl << "HASH: " << mainHash.sha_1 << std::endl << "wHASH (hex): " << mainHash.sha_1H << std::endl << "wHAHS (bin): " << mainHash.sha_1B << std::endl;
+		if ((m->id == GENMSG || m->id == CUSTOMMSG) && !msg.empty()) {
+			//std::string disp = "MSG: " + msg;
+			int settSize = sizeof(settings) / sizeof(*settings);
+			std::cout << "MSG: " << msg << std::endl;
+			for (int i = SHA_1; i < settSize; i++) {
+				if (CheckIfUsingHashAlg(i)) {
+					switch (i) {
+					case SHA_1: std::cout << "SHA1: " << mainHash.sha_1 << "\nSHA1h: " << mainHash.sha_1H << "\nSHA1b: " << mainHash.sha_1B << std::endl;
+						break;
+					case SHA_2: std::cout << "SHA256: " << mainHash.sha_2 << "\nSHA256h: " << mainHash.sha_2H << "\nSHA256b: " << mainHash.sha_2B << std::endl;
+						break;
+					case SHA_3: std::cout << "SHA3: " << mainHash.sha_3 << "\nSHA3h: " << mainHash.sha_3H << "\nSHA3b: " << mainHash.sha_3B << std::endl;
+						break;
+					case KEccAK: std::cout << "KECCAK: " << mainHash.kecak << "\nKECCAKh: " << mainHash.kecakH << "\nKECCAKb: " << mainHash.kecakB << std::endl;
+						break;
+					case MD_5: std::cout << "MD5: " << mainHash.md_5 << "\nMD5h: " << mainHash.md_5H << "\nMD5b: " << mainHash.md_5B << std::endl;
+						break;
+					case CRC_32: std::cout << "CRC32: " << mainHash.crc_32<< "\nCRC42h: " << mainHash.crc_32H << "\nCRC32b: " << mainHash.crc_32B << std::endl;
+						break;
+					}
+				}
+			}
+			// << "HASH: " << mainHash.sha_1 << std::endl << "wHASH (hex): " << mainHash.sha_1H << std::endl << "wHAHS (bin): " << mainHash.sha_1B << std::endl;
+		}
 		Display(m, 0, 1);
 		std::getline(std::cin, odabir);
 		if (odabir[0] == 'x') return;
