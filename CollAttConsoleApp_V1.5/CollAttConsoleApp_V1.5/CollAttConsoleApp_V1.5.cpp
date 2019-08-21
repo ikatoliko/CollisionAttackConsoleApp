@@ -522,7 +522,7 @@ void GenTypeSizeString() {
 		break;
 	case 2: type = "Custom";
 	}
-	men->child->neighbour->neighbour->child->menu = "1. Tip (" + type + ")\n2. Velicina (" + std::to_string(settings[SIZE]) + ")" + ender;
+	men->child->neighbour->neighbour->child->menu = "1. Type (" + type + ")\n2. Size (" + std::to_string(settings[SIZE]) + ")" + ender;
 }
 
 void GenConfString() {
@@ -588,6 +588,7 @@ void UI(Menu* m) {
 			int settSize = sizeof(settings) / sizeof(*settings);
 			std::cout << "MSG: " << msg << std::endl << std::endl << WriteHashes(mainHash);
 		}
+		else if(m->id == COLLIDE && msg.empty()) std::cout << "Message is not yet generated!" << std::endl;
 		Display(m, 0, 1);
 		std::getline(std::cin, odabir);
 		if (odabir[0] == 'x') return;
@@ -620,15 +621,18 @@ void UI(Menu* m) {
 			GenCustMsgString();
 			return;
 		case COLLIDE:
-			if (choice == 1) {
+			if (choice == 1 && !msg.empty()) {
 				Collide();
 				collider = true;
 			}
 			break;
-		case MSGTYPE:
+		case MSGTYPE: {
+			int prevType = settings[TYPE];
 			settings[TYPE] = odabir[0] - 49;
+			if (settings[TYPE] != prevType) msg.clear();
 			GenTypeSizeString();
 			return;
+		}
 		case MSGSIZE:
 			settings[SIZE] = stoi(odabir);
 			GenTypeSizeString();
