@@ -28,69 +28,28 @@ std::uniform_int_distribution<> allASCII(32, 126); //Svi ASCII znakovi
 
 enum menuTypes {MAIN, GENMSG, CUSTOMMSG, COLLIDE, CONFIG, TYPESIZE, MSGTYPE, MSGSIZE, MSGNUM, FIRSTPRT, DYNAMICPRT, SECONDPRT, MHASHES, HASHWEAK, DYNAMIN, DYNAMAX, HASHWOPT};
 enum settTypes {TYPE, SIZE, NUM, FIRST, DYNAM, MIN, MAX, HASHES, SHA_1, SHA_2, SHA_3, KEccAK, MD_5, CRC_32};
+enum collisons {S1, S2, S3, KCK, M5, C32};
 
 struct Menu {
 	menuTypes id=MAIN;
 	std::string menu;
-	Menu* dijete = NULL;
-	Menu* susjed = NULL;
+	Menu* child = NULL;
+	Menu* neighbour = NULL;
 };
 
-class Hashes {
-public:
+struct Hashes {
 	std::string sha_1, sha_2, sha_3, kecak, md_5, crc_32;
 	std::string sha_1H, sha_2H, sha_3H, kecakH, md_5H, crc_32H;
 	std::string sha_1B, sha_2B, sha_3B, kecakB, md_5B, crc_32B;
-	/*Hashes(std::string s1, std::string s2, std::string s3, std::string k, std::string m, std::string c,
-		std::string s1H, std::string s2H, std::string s3H, std::string kH, std::string mH, std::string cH,
-		std::string s1B, std::string s2B, std::string s3B, std::string kB, std::string mB, std::string cB) {
-		this->sha_1 = s1;
-		this->sha_1B = s1B;
-		this->sha_1H = s1H;
-		this->sha_2 = s2;
-		this->sha_2B = s2B;
-		this->sha_2H = s2H;
-		this->sha_3 = s3;
-		this->sha_3B = s3B;
-		this->sha_3H = s3H;
-		this->kecak = k;
-		this->kecakB = kB;
-		this->kecakH = kH;
-		this->md_5 = m;
-		this->md_5B = mB;
-		this->md_5H = mH;
-		this->crc_32 = c;
-		this->crc_32B = cB;
-		this->crc_32H = cH;
-	}*/
-	Hashes() {
-		this->sha_1= "";
-		this->sha_1B = "";
-		this->sha_1H = "";
-		this->sha_2= "";
-		this->sha_1B = "";
-		this->sha_1H = "";
-		this->sha_3= "";
-		this->sha_3B = "";
-		this->sha_3H = "";
-		this->kecak = "";
-		this->kecakB = "";
-		this->kecakH = "";
-		this->md_5 = "";
-		this->md_5B = "";
-		this->md_5H = "";
-		this->crc_32 = "";
-		this->crc_32B = "";
-		this->crc_32H = "";
-	}
 };
 
 Menu* men = new Menu;
 Hashes mainHash;
-const std::string ender = "\nx. Povratak\n>>";
+const std::string ender = "\nx. Return\n>>";
 
 std::map<std::string, Hashes> mapa;
-std::vector<std::string> collisions;
+std::vector<std::pair<std::string, Hashes>> colls[6];
+//std::vector<std::string> sha1Coll, sha2Coll, sha3Coll, keccakColl, md5Coll, crc32Coll;
 
 std::string msg;
 int settings[] = { 0, 1024, 2000, 0, 0, 2, 5, 1, 20, 1, 1, 1, 1, 1};
@@ -159,7 +118,7 @@ std::pair<std::string, std::string> WeakenHash64(std::string hash, int alg) {
 			bitsPartialCpy >>= 192;
 			ss << std::hex << bitsPartialCpy.to_ullong();
 			ss >> wh;
-			if (wh != "0")weakHash += wh;
+			if (wh != "0") weakHash += wh;
 		}
 	}
 	else {
@@ -187,7 +146,7 @@ std::pair<std::string, std::string> WeakenHash32(std::string hash, int alg) {
 		else set <<= 4;
 	}
 	std::string weakHash, wh;
-	if (settings[alg] < 4) {
+	if (settings[alg] < 2) {
 		std::bitset<128> bitsPartialCpy;
 		for (int i = 0; i < 4; i++) {
 			std::stringstream ss;
@@ -195,7 +154,7 @@ std::pair<std::string, std::string> WeakenHash32(std::string hash, int alg) {
 			bitsPartialCpy >>= 96;
 			ss << std::hex << bitsPartialCpy.to_ullong();
 			ss >> wh;
-			if (wh != "0")weakHash += wh;
+			if (wh != "0") weakHash += wh;
 		}
 	}
 	else {
@@ -222,22 +181,9 @@ std::pair<std::string, std::string> WeakenHash8(std::string hash, int alg) {
 		else set <<= 4;
 	}
 	std::string weakHash, wh;
-	if (settings[alg] < 4) {
-		std::bitset<32> bitsPartialCpy;
-		for (int i = 0; i < 4; i++) {
-			std::stringstream ss;
-			bitsPartialCpy = bits << (8 * i);
-			bitsPartialCpy >>= 24;
-			ss << std::hex << bitsPartialCpy.to_ullong();
-			ss >> wh;
-			if (wh != "0")weakHash += wh;
-		}
-	}
-	else {
-		std::stringstream ss;
-		ss << std::hex << bits.to_ullong();
-		ss >> weakHash;
-	}
+	std::stringstream ss;
+	ss << std::hex << bits.to_ullong();
+	ss >> weakHash;
 	while (weakHash.length() < limiter) weakHash.insert(0, "0");
 	return std::pair<std::string, std::string>(weakHash, bits.to_string().substr(32 - limiter * 4));
 }
@@ -246,7 +192,7 @@ Hashes GenHashes(std::string toHash) {
 	int bin, settSize = sizeof(settings)/sizeof(*settings);
 	Hashes hashes;
 	std::pair<std::string, std::string> weakHash;
-	for (int i = SHA_1; i <= settSize; i++) {
+	for (int i = SHA_1; i < settSize; i++) {
 		if (CheckIfUsingHashAlg(i)) {
 			switch(i) {
 			case SHA_1: {
@@ -309,13 +255,13 @@ void Config(int i) {
 	if (!configuration || i == 1) {
 		configuration.close();
 		configuration.open("CollAttConf.txt", std::fstream::out | std::fstream::trunc);
-		configuration << "VRSTA_PORUKA: " + std::to_string(settings[TYPE]) + "|" + std::to_string(settings[FIRST]) + "," + std::to_string(settings[DYNAM]) + "." + std::to_string(settings[MIN]) + "-" + std::to_string(settings[MAX])
-			+ "\nVELICINA_PORUKA: " + std::to_string(settings[SIZE])
-			+ "\nBROJ_PORUKA: " + std::to_string(settings[NUM])
+		configuration << "MESSAGE_TYPE: " + std::to_string(settings[TYPE]) + "|" + std::to_string(settings[FIRST]) + "," + std::to_string(settings[DYNAM]) + "." + std::to_string(settings[MIN]) + "-" + std::to_string(settings[MAX])
+			+ "\nMESSAGE_SIZE: " + std::to_string(settings[SIZE])
+			+ "\nMESSAGE_AMOUNT: " + std::to_string(settings[NUM])
 			+ "\nHASH: " + std::to_string(settings[HASHES])
-			+ "\nOSLABLJENJA: " + std::to_string(settings[SHA_1]) + "," + std::to_string(settings[SHA_2]) + "," + std::to_string(settings[SHA_3]) + ","
+			+ "\nWEAKENINGS: " + std::to_string(settings[SHA_1]) + "," + std::to_string(settings[SHA_2]) + "," + std::to_string(settings[SHA_3]) + ","
 								+ std::to_string(settings[KEccAK]) + "," + std::to_string(settings[MD_5]) + "," + std::to_string(settings[CRC_32])
-			+ "\nPORUKA: "+msg+"\n";
+			+ "\nMESSAGE: "+msg+"\n";
 	}
 	else {
 		std::string confLine, value;
@@ -377,36 +323,47 @@ std::string GenAllASCIIMsg() {
 std::string GenNumericMsg() {
 	std::uniform_int_distribution<> d(settings[MIN], settings[MAX]);
 	std::string nMsg;
-	int i = 0;
-	if (dis(gen) <= 30) {
-		nMsg = "-";
-		i = 1;
-	}
-	for (int j = d(gen); i < j; i++) {
-		nMsg += (char)intDis(gen);
-	}
+	if (dis(gen) <= 30)	nMsg = "-";
+	for (int j = d(gen), i= 0; i < j; i++) nMsg += (char)intDis(gen);
+	if (nMsg[0] == '-') while (nMsg[1] == '0') nMsg.erase(1, 1);
+	else while (nMsg[0] == '0') nMsg.erase(0, 1);
+	int msgSize = nMsg.length();
+	if (nMsg[0] == '-') msgSize = nMsg.length() - 1;
+	if (msgSize<settings[MIN]) nMsg = GenNumericMsg();
 	return nMsg;
 }
 
 void InsertMenu(Menu* node, menuTypes i, std::string m) {
-	if (!node->dijete) {
-		node->dijete = new Menu;
-		node->dijete->menu = m;
-		node->dijete->id = i;
+	if (!node->child) {
+		node->child = new Menu;
+		node->child->menu = m;
+		node->child->id = i;
 	}
 	else {
-		node = node->dijete;
-		while (node->susjed) node = node->susjed;
-		node->susjed = new Menu;
-		node->susjed->menu=m;
-		node->susjed->id = i;
+		node = node->child;
+		while (node->neighbour) node = node->neighbour;
+		node->neighbour = new Menu;
+		node->neighbour->menu=m;
+		node->neighbour->id = i;
 	}
+}
+
+std::string WriteHashes(Hashes h) {
+	std::string toWrite;
+	if (!h.sha_1.empty()) toWrite += "SHA1: " + h.sha_1 + "\nSHA1h: " + h.sha_1H + "\nSHA1b: " + h.sha_1B + "\n";
+	if (!h.sha_2.empty()) toWrite += "SHA256: " + h.sha_2 + "\nSHA256h: " + h.sha_2H + "\nSHA256b: " + h.sha_2B + "\n";
+	if (!h.sha_3.empty()) toWrite += "SHA3: " + h.sha_3 + "\nSHA3h: " + h.sha_3H + "\nSHA3b: " + h.sha_3B + "\n";
+	if (!h.kecak.empty()) toWrite += "KECCAK: " + h.kecak + "\nKECCAKh: " + h.kecakH + "\nKECCAKb: " + h.kecakB + "\n";
+	if (!h.md_5.empty()) toWrite += "MD5: " + h.md_5 + "\nMD5h: " + h.md_5H + "\nMD5b: " + h.md_5B + "\n";
+	if (!h.crc_32.empty()) toWrite += "CRC32: " + h.crc_32 + "\nCRC32h: " + h.crc_32H + "\nCRC32b: " + h.crc_32B + "\n";
+	return toWrite + "\n";
 }
 
 void Collide() {
 	mapa.clear();
 	mapa[msg] = GenHashes(msg);
-	collisions.clear();
+	std::pair<bool, int> firstHit[6] = {std::pair<bool, int>(false, 0)};
+	for (int i = 0; i < 6; i++) colls[i].clear();
 	std::string wHash = GenHashes(msg).sha_1B;
 	for (int i = 0; i < settings[NUM]; i++) {
 		if (i % 100 == 0) std::cout << i << std::endl;
@@ -427,25 +384,130 @@ void Collide() {
 		Hashes nHash = GenHashes(nMsg);
 		std::pair<std::map<std::string, Hashes>::iterator, bool> rez = mapa.insert(std::pair<std::string, Hashes>(nMsg, nHash));
 		if (!rez.second) i--; // ako je generirana poruka koja je vec ranije generirana, brojac for petlje se smanjuje za 1 kako bi se generirala nova poruka
-		else if (wHash.compare(nHash.sha_1B) == 0) {
-			collisions.push_back(nMsg);
+		else {
+			int settSize = sizeof(settings) / sizeof(*settings);
+			for (int j = SHA_1; j < settSize; j++) {
+				if (CheckIfUsingHashAlg(j)) {
+					switch (j) {
+					case SHA_1:
+						if (nHash.sha_1H == mainHash.sha_1H) {
+							colls[S1].push_back(std::pair<std::string, Hashes>(nMsg, nHash));
+							if (!firstHit[S1].first) {
+								firstHit[S1].first = true;
+								firstHit[S1].second = i;
+							}
+						}
+						break;
+					case SHA_2:
+						if (nHash.sha_2H == mainHash.sha_2H) {
+							colls[S2].push_back(std::pair<std::string, Hashes>(nMsg, nHash));
+							if (!firstHit[S2].first) {
+								firstHit[S2].first = true;
+								firstHit[S2].second = i;
+							}
+						}
+						break;
+					case SHA_3:
+						if (nHash.sha_3H == mainHash.sha_3H) colls[S3].push_back(std::pair<std::string, Hashes>(nMsg, nHash));
+						if (!firstHit[S3].first) {
+							firstHit[S3].first = true;
+							firstHit[S3].second = i;
+						}
+						break;
+					case KEccAK:
+						if (nHash.kecakH == mainHash.kecakH) {
+							colls[KCK].push_back(std::pair<std::string, Hashes>(nMsg, nHash));
+							if (!firstHit[KCK].first) {
+								firstHit[KCK].first = true;
+								firstHit[KCK].second = i;
+							}
+						}
+						break;
+					case MD_5:
+						if (nHash.md_5H == mainHash.md_5H) {
+							colls[M5].push_back(std::pair<std::string, Hashes>(nMsg, nHash));
+							if (!firstHit[M5].first) {
+								firstHit[M5].first = true;
+								firstHit[M5].second = i;
+							}
+						}
+						break;
+					case CRC_32:
+						if (nHash.crc_32H == mainHash.crc_32H) {
+							colls[C32].push_back(std::pair<std::string, Hashes>(nMsg, nHash));
+							if (!firstHit[C32].first) {
+								firstHit[C32].first = true;
+								firstHit[C32].second = i;
+							}
+						}
+						break;
+					}
+				}
+			}
 		}
 	}
+	std::fstream msgs;
+	msgs.open("Messages.txt", std::fstream::out | std::fstream::trunc);
 	std::map<std::string, Hashes>::iterator itr;
+	system("cls");
+	std::cout << "Messages written into Messages.txt\nCollisons written into Collisons.txt\n\n";
+	int k = 0;
 	for (itr = mapa.begin(); itr != mapa.end(); itr++) {
-		if (itr->first.compare(msg) != 0) std::cout << "MSG: "<<itr->first << "\nHASH: " << itr->second.sha_1 <<"\nwHASH (hex): "<<itr->second.sha_1H<<"\nwHASH (bin): "<<itr->second.sha_1B<<std::endl << std::endl;
+		if (itr->first.compare(msg) != 0) {
+			msgs << std::to_string(++k) + ". MSG: " + itr->first + "\n";
+			msgs << WriteHashes(itr->second);
+		}
 	}
-	std::cout << "-------Pocetna Poruka----------\n" << msg << "\nHASH: " << mainHash.sha_1 << "\nwHASH (hex): " << mainHash.sha_1H << "\nwHASH (bin): " << mainHash.sha_1B << "\n------------------------------\n" << std::endl;
-	int j = 0;
-	if (!collisions.empty()) std::cout << "Kolizije (" << collisions.size() << "):\n\n";
-	for (std::string hit : collisions) std::cout << "(" << ++j << ") "<<hit << std::endl << "HASH: " << GenHashes(hit).sha_1 << std::endl << std::endl;
-	if (!collisions.empty()) std::cout << "Kolizije (" << collisions.size() << ")\n\n";
+	msgs << "-------------------\nMSG: " + msg + "\n" + WriteHashes(mainHash);
+	msgs.close();
+	std::fstream collisons;
+	std::string collisonsString = "-------Main message----------\nMSG: " + msg + "\n" + WriteHashes(mainHash) + "-----------------------------\n", summary = "\nSummary:\n-------";
+	collisons.open("Collisons.txt", std::fstream::out | std::fstream::trunc);
+	collisons << collisonsString;
+	std::cout << collisonsString;
+	collisonsString.clear();
+	for (int h = S1; h <= C32; h++) {
+		int j = 0;
+		if (!colls[h].empty()) {
+			switch (h) {
+			case S1: 
+				collisonsString += "\nSHA1 (" + std::to_string(colls[h].size()) + ")";
+				break;
+			case S2:
+				collisonsString += "\nSHA256 (" + std::to_string(colls[h].size()) + ")";
+				break;
+			case S3:
+				collisonsString += "\nSHA3 (" + std::to_string(colls[h].size()) + ")";
+				break;
+			case KCK:
+				collisonsString += "\nKECCAK (" + std::to_string(colls[h].size()) + ")";
+				break;
+			case M5:
+				collisonsString += "\nMD5 (" + std::to_string(colls[h].size()) + ")";
+				break;
+			case C32:
+				collisonsString += "\nCRC32 (" + std::to_string(colls[h].size()) + ")";
+				break;
+			}
+			collisonsString += " First hit: " + std::to_string(firstHit[h].second) + "\n";
+			summary += collisonsString;
+			for (std::pair<std::string, Hashes> hit : colls[h]) collisonsString += "\n"+ std::to_string(++j) + ". MSG: " + hit.first + "\n" + WriteHashes(hit.second);
+			collisonsString += "-----------------------\n";
+			collisons << collisonsString;
+			std::cout << collisonsString;
+			collisonsString.clear();
+		}
+	}
+	summary += "\n-------\n";
+	collisons << summary;
+	std::cout << summary;
+	collisons.close();
 }
 
 Menu* Display(Menu* node, int nthChild, bool disp) {
 	if(nthChild) {
-		node = node->dijete;
-		while (--nthChild && node->susjed) node = node->susjed;
+		node = node->child;
+		while (--nthChild && node->neighbour) node = node->neighbour;
 	}
 	if(disp) std::cout << node->menu;
 	return node;
@@ -460,22 +522,22 @@ void GenTypeSizeString() {
 		break;
 	case 2: type = "Custom";
 	}
-	men->dijete->susjed->susjed->dijete->menu = "1. Tip (" + type + ")\n2. Velicina (" + std::to_string(settings[SIZE]) + ")" + ender;
+	men->child->neighbour->neighbour->child->menu = "1. Tip (" + type + ")\n2. Velicina (" + std::to_string(settings[SIZE]) + ")" + ender;
 }
 
 void GenConfString() {
-	men->dijete->susjed->susjed->menu = "1. Vrsta i velicina poruka\n2. Broj poruka ("+std::to_string(settings[NUM])+")\n3. HASHevi\n4. Oslabljenja" + ender;
+	men->child->neighbour->neighbour->menu = "1. Type and size of messages\n2. Number of messages ("+std::to_string(settings[NUM])+")\n3. HASHes\n4. Weakenings" + ender;
 }
 
 void GenCustMsgString() {
-	men->dijete->dijete->menu = "1. Prvi dio\n2. Dinamicki dio\n3. Drugi dio\n4. Minimum("+std::to_string(settings[MIN])+")\n5. Maksimum ("+std::to_string(settings[MAX])+")" + ender;
+	men->child->child->menu = "1. First part\n2. Dynamic part\n3. Second part\n4. Minimum ("+std::to_string(settings[MIN])+")\n5. Maximum ("+std::to_string(settings[MAX])+")" + ender;
 }
 
 void GenHashesString() {
-	men->dijete->susjed->susjed->dijete->susjed->susjed->menu = "1. SHA1   (" + std::to_string(CheckIfUsingHashAlg(SHA_1)) + ")\n2. SHA2   (" + std::to_string(CheckIfUsingHashAlg(SHA_2)) + ")\n3. SHA3   (" + std::to_string(CheckIfUsingHashAlg(SHA_3)) + ")\n4. KECCAK (" + std::to_string(CheckIfUsingHashAlg(KEccAK)) + ")\n5. MD5    (" + std::to_string(CheckIfUsingHashAlg(MD_5)) + ")\n2. CRC32  (" + std::to_string(CheckIfUsingHashAlg(CRC_32)) + ")" + ender;
+	men->child->neighbour->neighbour->child->neighbour->neighbour->menu = "1. SHA1   (" + std::to_string(CheckIfUsingHashAlg(SHA_1)) + ")\n2. SHA2   (" + std::to_string(CheckIfUsingHashAlg(SHA_2)) + ")\n3. SHA3   (" + std::to_string(CheckIfUsingHashAlg(SHA_3)) + ")\n4. KECCAK (" + std::to_string(CheckIfUsingHashAlg(KEccAK)) + ")\n5. MD5    (" + std::to_string(CheckIfUsingHashAlg(MD_5)) + ")\n6. CRC32  (" + std::to_string(CheckIfUsingHashAlg(CRC_32)) + ")" + ender;
 }
 void GenWeakeningString() {
-	men->dijete->susjed->susjed->dijete->susjed->susjed->susjed->menu = 
+	men->child->neighbour->neighbour->child->neighbour->neighbour->neighbour->menu = 
 		"1. SHA1   (" + std::to_string(settings[SHA_1]) +
 		")\n2. SHA2   (" + std::to_string(settings[SHA_2]) +
 		")\n3. SHA3   (" + std::to_string(settings[SHA_3]) + 
@@ -510,7 +572,7 @@ void GenWeakeningOpt(int alg) {
 		if (!(size % i)) m += std::to_string(j++) + ". " + std::to_string(i) + "\n";
 	}
 	m += std::to_string(j++) + ". " + std::to_string(size);
-	men->dijete->susjed->susjed->dijete->susjed->susjed->susjed->dijete->menu = m + ender;
+	men->child->neighbour->neighbour->child->neighbour->neighbour->neighbour->child->menu = m + ender;
 }
 
 int tempChoice;
@@ -521,30 +583,10 @@ void UI(Menu* m) {
 	int choice = 0;
 	do {
 		if(!collider) system("cls");
-		if (m->id == GENMSG && settings[TYPE]==2) m = m->dijete; //Radi strukture stabla, preskace na dijete ako se radi o prilagodenom tipu poruke
+		if (m->id == GENMSG && settings[TYPE]==2) m = m->child; //Radi strukture stabla, preskace na child ako se radi o prilagodenom tipu poruke
 		if ((m->id == GENMSG || m->id == CUSTOMMSG) && !msg.empty()) {
-			//std::string disp = "MSG: " + msg;
 			int settSize = sizeof(settings) / sizeof(*settings);
-			std::cout << "MSG: " << msg << std::endl;
-			for (int i = SHA_1; i < settSize; i++) {
-				if (CheckIfUsingHashAlg(i)) {
-					switch (i) {
-					case SHA_1: std::cout << "SHA1: " << mainHash.sha_1 << "\nSHA1h: " << mainHash.sha_1H << "\nSHA1b: " << mainHash.sha_1B << std::endl;
-						break;
-					case SHA_2: std::cout << "SHA256: " << mainHash.sha_2 << "\nSHA256h: " << mainHash.sha_2H << "\nSHA256b: " << mainHash.sha_2B << std::endl;
-						break;
-					case SHA_3: std::cout << "SHA3: " << mainHash.sha_3 << "\nSHA3h: " << mainHash.sha_3H << "\nSHA3b: " << mainHash.sha_3B << std::endl;
-						break;
-					case KEccAK: std::cout << "KECCAK: " << mainHash.kecak << "\nKECCAKh: " << mainHash.kecakH << "\nKECCAKb: " << mainHash.kecakB << std::endl;
-						break;
-					case MD_5: std::cout << "MD5: " << mainHash.md_5 << "\nMD5h: " << mainHash.md_5H << "\nMD5b: " << mainHash.md_5B << std::endl;
-						break;
-					case CRC_32: std::cout << "CRC32: " << mainHash.crc_32<< "\nCRC42h: " << mainHash.crc_32H << "\nCRC32b: " << mainHash.crc_32B << std::endl;
-						break;
-					}
-				}
-			}
-			// << "HASH: " << mainHash.sha_1 << std::endl << "wHASH (hex): " << mainHash.sha_1H << std::endl << "wHAHS (bin): " << mainHash.sha_1B << std::endl;
+			std::cout << "MSG: " << msg << std::endl << std::endl << WriteHashes(mainHash);
 		}
 		Display(m, 0, 1);
 		std::getline(std::cin, odabir);
@@ -604,7 +646,7 @@ void UI(Menu* m) {
 			return;
 		case HASHWEAK: {
 			GenWeakeningOpt(choice);
-			UI(m->dijete);
+			UI(m->child);
 			int size = GetHashSize(choice);
 			for (int i = 1; i <= size; i++) {
 				if (!(size % i) && !(--tempChoice)) {
@@ -618,33 +660,34 @@ void UI(Menu* m) {
 		default: UI(Display(m, choice, 0));
 		}
 		Config(1);
+		if(m->id == CONFIG) mainHash = GenHashes(msg);
 	} while (1);
 }
 
 int main() {
 	Config(0);
-	men->menu = "1. Generiraj poruku\n2. Trazi kolizije\n3. Konfiguracija" + ender;
-	InsertMenu(men, GENMSG,"1. Generiraj poruku" + ender);
-	InsertMenu(men->dijete, CUSTOMMSG, "");
+	men->menu = "1. Generate message\n2. Search for collisons\n3. Configuration" + ender;
+	InsertMenu(men, GENMSG,"1. Generate message" + ender);
+	InsertMenu(men->child, CUSTOMMSG, "");
 	GenCustMsgString();
-	InsertMenu(men->dijete->dijete, FIRSTPRT, "Prvi dio: ");
-	InsertMenu(men->dijete->dijete, DYNAMICPRT, "Dinamicki dio: ");
-	InsertMenu(men->dijete->dijete, SECONDPRT, "Drugi dio: ");
-	InsertMenu(men->dijete->dijete, DYNAMIN, "Minimum: ");
-	InsertMenu(men->dijete->dijete, DYNAMAX, "Maksimum: ");
-	InsertMenu(men, COLLIDE, "1. Trazi kolizije" + ender);
+	InsertMenu(men->child->child, FIRSTPRT, "First part: ");
+	InsertMenu(men->child->child, DYNAMICPRT, "Dynamic part: ");
+	InsertMenu(men->child->child, SECONDPRT, "Second part: ");
+	InsertMenu(men->child->child, DYNAMIN, "Minimum: ");
+	InsertMenu(men->child->child, DYNAMAX, "Maximum: ");
+	InsertMenu(men, COLLIDE, "1. Search for collisons" + ender);
 	InsertMenu(men, CONFIG, "");
 	GenConfString();
-	InsertMenu(men->dijete->susjed->susjed, TYPESIZE, "");
+	InsertMenu(men->child->neighbour->neighbour, TYPESIZE, "");
 	GenTypeSizeString();
-	InsertMenu(men->dijete->susjed->susjed->dijete, MSGTYPE, "1. PassLike\n2. All ASCII\n3. Custom" + ender);
-	InsertMenu(men->dijete->susjed->susjed->dijete, MSGSIZE, "Velicina poruka: ");
-	InsertMenu(men->dijete->susjed->susjed, MSGNUM, "Broj poruka: ");
-	InsertMenu(men->dijete->susjed->susjed, MHASHES, "");
+	InsertMenu(men->child->neighbour->neighbour->child, MSGTYPE, "1. PassLike\n2. All ASCII\n3. Custom" + ender);
+	InsertMenu(men->child->neighbour->neighbour->child, MSGSIZE, "Size of messages: ");
+	InsertMenu(men->child->neighbour->neighbour, MSGNUM, "Number of messages: ");
+	InsertMenu(men->child->neighbour->neighbour, MHASHES, "");
 	GenHashesString();
-	InsertMenu(men->dijete->susjed->susjed, HASHWEAK, "");
+	InsertMenu(men->child->neighbour->neighbour, HASHWEAK, "");
 	GenWeakeningString();
-	InsertMenu(men->dijete->susjed->susjed->dijete->susjed->susjed->susjed, HASHWOPT, "");
+	InsertMenu(men->child->neighbour->neighbour->child->neighbour->neighbour->neighbour, HASHWOPT, "");
 	UI(men);
 	return 1;
 }
