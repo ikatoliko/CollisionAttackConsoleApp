@@ -2,7 +2,7 @@
 #include <string>
 #include <random>
 #include <bitset>
-#include <map>
+#include <unordered_map>
 #include <fstream>
 #include "hash-library/sha1.h"
 #include "hash-library/sha1.cpp"
@@ -28,7 +28,7 @@ std::uniform_int_distribution<> allASCII(32, 126); //Svi ASCII znakovi
 
 enum menuTypes {MAIN, GENMSG, CUSTOMMSG, COLLIDE, CONFIG, TYPESIZE, MSGTYPE, MSGSIZE, MSGNUM, FIRSTPRT, DYNAMICPRT, SECONDPRT, MHASHES, HASHWEAK, DYNAMIN, DYNAMAX, HASHWOPT};
 enum settTypes {TYPE, SIZE, NUM, FIRST, DYNAM, MIN, MAX, HASHES, SHA_1, SHA_2, SHA_3, KEccAK, MD_5, CRC_32};
-enum collisons {S1, S2, S3, KCK, M5, C32};
+//enum collisons {S1, S2, S3, KCK, M5, C32};
 
 struct Menu {
 	menuTypes id=MAIN;
@@ -47,12 +47,13 @@ Menu* men = new Menu;
 Hashes mainHash;
 const std::string ender = "\nx. Return\n>>";
 
-std::map<std::string, Hashes> mapa;
-std::vector<std::pair<std::string, Hashes>> colls[6];
+std::unordered_map<std::string, Hashes> mapa;
+std::vector<std::pair<std::pair<int, std::string>, Hashes>> colls[6];
 //std::vector<std::string> sha1Coll, sha2Coll, sha3Coll, keccakColl, md5Coll, crc32Coll;
 
 std::string msg;
 int settings[] = { 0, 1024, 2000, 0, 0, 2, 5, 1, 20, 1, 1, 1, 1, 1};
+int settSize = sizeof(settings) / sizeof(*settings);
 
 bool CheckIfUsingHashAlg(int alg) {
 	return ((settings[HASHES] >> (alg - SHA_1)) & 1) ? true : false;
@@ -189,7 +190,6 @@ std::pair<std::string, std::string> WeakenHash8(std::string hash, int alg) {
 }
 
 Hashes GenHashes(std::string toHash) {
-	int bin, settSize = sizeof(settings)/sizeof(*settings);
 	Hashes hashes;
 	std::pair<std::string, std::string> weakHash;
 	for (int i = SHA_1; i < settSize; i++) {
@@ -362,7 +362,7 @@ std::string WriteHashes(Hashes h) {
 void Collide() {
 	mapa.clear();
 	mapa[msg] = GenHashes(msg);
-	std::pair<bool, int> firstHit[6] = {std::pair<bool, int>(false, 0)};
+	//std::pair<bool, int> firstHit[6] = {std::pair<bool, int>(false, 0)};
 	for (int i = 0; i < 6; i++) colls[i].clear();
 	std::string wHash = GenHashes(msg).sha_1B;
 	for (int i = 0; i < settings[NUM]; i++) {
@@ -382,64 +382,30 @@ void Collide() {
 			break;
 		}
 		Hashes nHash = GenHashes(nMsg);
-		std::pair<std::map<std::string, Hashes>::iterator, bool> rez = mapa.insert(std::pair<std::string, Hashes>(nMsg, nHash));
+		std::pair<std::unordered_map<std::string, Hashes>::iterator, bool> rez = mapa.insert(std::pair<std::string, Hashes>(nMsg, nHash));
 		if (!rez.second) i--; // ako je generirana poruka koja je vec ranije generirana, brojac for petlje se smanjuje za 1 kako bi se generirala nova poruka
 		else {
-			int settSize = sizeof(settings) / sizeof(*settings);
 			for (int j = SHA_1; j < settSize; j++) {
 				if (CheckIfUsingHashAlg(j)) {
+					int k = j - SHA_1;
 					switch (j) {
 					case SHA_1:
-						if (nHash.sha_1H == mainHash.sha_1H) {
-							colls[S1].push_back(std::pair<std::string, Hashes>(nMsg, nHash));
-							if (!firstHit[S1].first) {
-								firstHit[S1].first = true;
-								firstHit[S1].second = i;
-							}
-						}
+						if (nHash.sha_1H == mainHash.sha_1H) colls[k].push_back(std::pair<std::pair<int, std::string>, Hashes>(std::pair<int, std::string>(i, nMsg), nHash));
 						break;
 					case SHA_2:
-						if (nHash.sha_2H == mainHash.sha_2H) {
-							colls[S2].push_back(std::pair<std::string, Hashes>(nMsg, nHash));
-							if (!firstHit[S2].first) {
-								firstHit[S2].first = true;
-								firstHit[S2].second = i;
-							}
-						}
+						if (nHash.sha_2H == mainHash.sha_2H) colls[k].push_back(std::pair<std::pair<int, std::string>, Hashes>(std::pair<int, std::string>(i, nMsg), nHash));
 						break;
 					case SHA_3:
-						if (nHash.sha_3H == mainHash.sha_3H) colls[S3].push_back(std::pair<std::string, Hashes>(nMsg, nHash));
-						if (!firstHit[S3].first) {
-							firstHit[S3].first = true;
-							firstHit[S3].second = i;
-						}
+						if (nHash.sha_3H == mainHash.sha_3H) colls[k].push_back(std::pair<std::pair<int, std::string>, Hashes>(std::pair<int, std::string>(i, nMsg), nHash));
 						break;
 					case KEccAK:
-						if (nHash.kecakH == mainHash.kecakH) {
-							colls[KCK].push_back(std::pair<std::string, Hashes>(nMsg, nHash));
-							if (!firstHit[KCK].first) {
-								firstHit[KCK].first = true;
-								firstHit[KCK].second = i;
-							}
-						}
+						if (nHash.kecakH == mainHash.kecakH) colls[k].push_back(std::pair<std::pair<int, std::string>, Hashes>(std::pair<int, std::string>(i, nMsg), nHash));						
 						break;
 					case MD_5:
-						if (nHash.md_5H == mainHash.md_5H) {
-							colls[M5].push_back(std::pair<std::string, Hashes>(nMsg, nHash));
-							if (!firstHit[M5].first) {
-								firstHit[M5].first = true;
-								firstHit[M5].second = i;
-							}
-						}
+						if (nHash.md_5H == mainHash.md_5H) colls[k].push_back(std::pair<std::pair<int, std::string>, Hashes>(std::pair<int, std::string>(i, nMsg), nHash));
 						break;
 					case CRC_32:
-						if (nHash.crc_32H == mainHash.crc_32H) {
-							colls[C32].push_back(std::pair<std::string, Hashes>(nMsg, nHash));
-							if (!firstHit[C32].first) {
-								firstHit[C32].first = true;
-								firstHit[C32].second = i;
-							}
-						}
+						if (nHash.crc_32H == mainHash.crc_32H) colls[k].push_back(std::pair<std::pair<int, std::string>, Hashes>(std::pair<int, std::string>(i, nMsg), nHash));
 						break;
 					}
 				}
@@ -448,7 +414,7 @@ void Collide() {
 	}
 	std::fstream msgs;
 	msgs.open("Messages.txt", std::fstream::out | std::fstream::trunc);
-	std::map<std::string, Hashes>::iterator itr;
+	std::unordered_map<std::string, Hashes>::iterator itr;
 	system("cls");
 	std::cout << "Messages written into Messages.txt\nCollisons written into Collisons.txt\n\n";
 	int k = 0;
@@ -466,32 +432,34 @@ void Collide() {
 	collisons << collisonsString;
 	std::cout << collisonsString;
 	collisonsString.clear();
-	for (int h = S1; h <= C32; h++) {
-		int j = 0;
-		if (!colls[h].empty()) {
+	for (int h = SHA_1; h < settSize; h++) {
+		int j = 0, k = h - SHA_1;
+		if (!colls[k].empty()) {
 			switch (h) {
-			case S1: 
-				collisonsString += "\nSHA1 (" + std::to_string(colls[h].size()) + ")";
+			case SHA_1: 
+				collisonsString += "\nSHA1 (" + std::to_string(colls[k].size()) + ")";
 				break;
-			case S2:
-				collisonsString += "\nSHA256 (" + std::to_string(colls[h].size()) + ")";
+			case SHA_2:
+				collisonsString += "\nSHA256 (" + std::to_string(colls[k].size()) + ")";
 				break;
-			case S3:
-				collisonsString += "\nSHA3 (" + std::to_string(colls[h].size()) + ")";
+			case SHA_3:
+				collisonsString += "\nSHA3 (" + std::to_string(colls[k].size()) + ")";
 				break;
-			case KCK:
-				collisonsString += "\nKECCAK (" + std::to_string(colls[h].size()) + ")";
+			case KEccAK:
+				collisonsString += "\nKECCAK (" + std::to_string(colls[k].size()) + ")";
 				break;
-			case M5:
-				collisonsString += "\nMD5 (" + std::to_string(colls[h].size()) + ")";
+			case MD_5:
+				collisonsString += "\nMD5 (" + std::to_string(colls[k].size()) + ")";
 				break;
-			case C32:
-				collisonsString += "\nCRC32 (" + std::to_string(colls[h].size()) + ")";
+			case CRC_32:
+				collisonsString += "\nCRC32 (" + std::to_string(colls[k].size()) + ")";
 				break;
 			}
-			collisonsString += " First hit: " + std::to_string(firstHit[h].second) + "\n";
+			collisonsString += " Hit msg:";// +std::to_string(colls[k].front().first.first) + "\n";
+			for (std::pair<std::pair<int, std::string>, Hashes> hit : colls[k]) collisonsString += " #" + std::to_string(hit.first.first);
 			summary += collisonsString;
-			for (std::pair<std::string, Hashes> hit : colls[h]) collisonsString += "\n"+ std::to_string(++j) + ". MSG: " + hit.first + "\n" + WriteHashes(hit.second);
+			collisonsString += "\n";
+			for (std::pair<std::pair<int, std::string>, Hashes> hit : colls[k]) collisonsString += "\n"+ std::to_string(++j) + ". (msg #" + std::to_string(hit.first.first) + ")" + " MSG: " + hit.first.second + "\n" + WriteHashes(hit.second);
 			collisonsString += "-----------------------\n";
 			collisons << collisonsString;
 			std::cout << collisonsString;
@@ -584,10 +552,7 @@ void UI(Menu* m) {
 	do {
 		if(!collider) system("cls");
 		if (m->id == GENMSG && settings[TYPE]==2) m = m->child; //Radi strukture stabla, preskace na child ako se radi o prilagodenom tipu poruke
-		if ((m->id == GENMSG || m->id == CUSTOMMSG) && !msg.empty()) {
-			int settSize = sizeof(settings) / sizeof(*settings);
-			std::cout << "MSG: " << msg << std::endl << std::endl << WriteHashes(mainHash);
-		}
+		if ((m->id == GENMSG || m->id == CUSTOMMSG) && !msg.empty()) std::cout << "MSG: " << msg << std::endl << std::endl << WriteHashes(mainHash);
 		else if(m->id == COLLIDE && msg.empty()) std::cout << "Message is not yet generated!" << std::endl;
 		Display(m, 0, 1);
 		std::getline(std::cin, odabir);
