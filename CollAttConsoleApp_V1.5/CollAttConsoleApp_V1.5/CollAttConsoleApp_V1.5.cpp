@@ -26,9 +26,8 @@ std::uniform_int_distribution<> upCDis(65, 90); // b) Znakovi [A, Z]
 std::uniform_int_distribution<> lowCDis(97, 122); // c) Znakovi [a, z]
 std::uniform_int_distribution<> allASCII(32, 126); //Svi ASCII znakovi
 
-enum menuTypes {MAIN, GENMSG, CUSTOMMSG, COLLIDE, CONFIG, TYPESIZE, MSGTYPE, MSGSIZE, MSGNUM, FIRSTPRT, DYNAMICPRT, SECONDPRT, MHASHES, HASHWEAK, DYNAMIN, DYNAMAX, HASHWOPT};
+enum menuTypes {MAIN, GENMSG, CUSTOMMSG, COLLIDE, NCOLLIDE, CONFIG, TYPESIZE, MSGTYPE, MSGSIZE, MSGNUM, FIRSTPRT, DYNAMICPRT, SECONDPRT, MHASHES, HASHWEAK, DYNAMIN, DYNAMAX, HASHWOPT};
 enum settTypes {TYPE, SIZE, NUM, FIRST, DYNAM, MIN, MAX, HASHES, SHA_1, SHA_2, SHA_3, KEccAK, MD_5, CRC_32};
-//enum collisons {S1, S2, S3, KCK, M5, C32};
 
 struct Menu {
 	menuTypes id=MAIN;
@@ -47,13 +46,9 @@ Menu* men = new Menu;
 Hashes mainHash;
 const std::string ender = "\nx. Return\n>>";
 
-std::unordered_map<std::string, Hashes> mapa;
-std::vector<std::pair<std::pair<int, std::string>, Hashes>> colls[6];
-//std::vector<std::string> sha1Coll, sha2Coll, sha3Coll, keccakColl, md5Coll, crc32Coll;
-
 std::string msg;
 int settings[] = { 0, 1024, 2000, 0, 0, 2, 5, 1, 20, 1, 1, 1, 1, 1};
-int settSize = sizeof(settings) / sizeof(*settings);
+const int settSize = sizeof(settings) / sizeof(*settings);
 
 bool CheckIfUsingHashAlg(int alg) {
 	return ((settings[HASHES] >> (alg - SHA_1)) & 1) ? true : false;
@@ -359,13 +354,14 @@ std::string WriteHashes(Hashes h) {
 	return toWrite + "\n";
 }
 
-void Collide() {
-	mapa.clear();
+std::vector<std::pair<int, std::vector<int>>> Collide(bool disp) {
+	std::unordered_map<std::string, Hashes> mapa;
+	std::vector<std::pair<std::pair<int, std::string>, Hashes>> colls[settSize - SHA_1];
+	std::vector<std::pair<int, std::vector<int>>> hits;
+	for (int i = SHA_1; i < settSize && !disp; i++) if(CheckIfUsingHashAlg(i)) hits.push_back(std::pair<int, std::vector<int>>(i, std::vector<int>()));
 	mapa[msg] = GenHashes(msg);
-	//std::pair<bool, int> firstHit[6] = {std::pair<bool, int>(false, 0)};
-	for (int i = 0; i < 6; i++) colls[i].clear();
 	std::string wHash = GenHashes(msg).sha_1B;
-	for (int i = 0; i < settings[NUM]; i++) {
+	for (int i = 0; i < settings[NUM] && i < 10000; i++) {
 		if (i % 100 == 0) std::cout << i << std::endl;
 		std::string nMsg;
 		switch (settings[TYPE]) {
@@ -383,93 +379,156 @@ void Collide() {
 		}
 		Hashes nHash = GenHashes(nMsg);
 		std::pair<std::unordered_map<std::string, Hashes>::iterator, bool> rez = mapa.insert(std::pair<std::string, Hashes>(nMsg, nHash));
-		if (!rez.second) i--; // ako je generirana poruka koja je vec ranije generirana, brojac for petlje se smanjuje za 1 kako bi se generirala nova poruka
+		if (!rez.second) i--;
 		else {
 			for (int j = SHA_1; j < settSize; j++) {
 				if (CheckIfUsingHashAlg(j)) {
 					int k = j - SHA_1;
 					switch (j) {
 					case SHA_1:
-						if (nHash.sha_1H == mainHash.sha_1H) colls[k].push_back(std::pair<std::pair<int, std::string>, Hashes>(std::pair<int, std::string>(i, nMsg), nHash));
+						if (nHash.sha_1H == mainHash.sha_1H) {
+							colls[k].push_back(std::pair<std::pair<int, std::string>, Hashes>(std::pair<int, std::string>(i + 1, nMsg), nHash));
+							for(int z = 0; !disp && z < hits.size(); z++){
+								if (hits[z].first == SHA_1) {
+									hits[z].second.push_back(i); break;
+								}
+							}
+						}
 						break;
 					case SHA_2:
-						if (nHash.sha_2H == mainHash.sha_2H) colls[k].push_back(std::pair<std::pair<int, std::string>, Hashes>(std::pair<int, std::string>(i, nMsg), nHash));
+						if (nHash.sha_2H == mainHash.sha_2H) {
+							colls[k].push_back(std::pair<std::pair<int, std::string>, Hashes>(std::pair<int, std::string>(i + 1, nMsg), nHash));
+							for (int z = 0; !disp && z < hits.size(); z++) {
+								if (hits[z].first == SHA_2) {
+									hits[z].second.push_back(i); break;
+								}
+							}
+						}
 						break;
 					case SHA_3:
-						if (nHash.sha_3H == mainHash.sha_3H) colls[k].push_back(std::pair<std::pair<int, std::string>, Hashes>(std::pair<int, std::string>(i, nMsg), nHash));
+						if (nHash.sha_3H == mainHash.sha_3H) {
+							colls[k].push_back(std::pair<std::pair<int, std::string>, Hashes>(std::pair<int, std::string>(i + 1, nMsg), nHash));
+							for (int z = 0; !disp && z < hits.size(); z++) {
+								if (hits[z].first == SHA_3) {
+									hits[z].second.push_back(i); break;
+								}
+							}
+						}
 						break;
 					case KEccAK:
-						if (nHash.kecakH == mainHash.kecakH) colls[k].push_back(std::pair<std::pair<int, std::string>, Hashes>(std::pair<int, std::string>(i, nMsg), nHash));						
+						if (nHash.kecakH == mainHash.kecakH) {
+							colls[k].push_back(std::pair<std::pair<int, std::string>, Hashes>(std::pair<int, std::string>(i + 1, nMsg), nHash));
+							for (int z = 0; !disp && z < hits.size(); z++) {
+								if (hits[z].first == KEccAK) {
+									hits[z].second.push_back(i); break;
+								}
+							}
+						}
 						break;
 					case MD_5:
-						if (nHash.md_5H == mainHash.md_5H) colls[k].push_back(std::pair<std::pair<int, std::string>, Hashes>(std::pair<int, std::string>(i, nMsg), nHash));
+						if (nHash.md_5H == mainHash.md_5H) {
+							colls[k].push_back(std::pair<std::pair<int, std::string>, Hashes>(std::pair<int, std::string>(i + 1, nMsg), nHash));
+							for (int z = 0; !disp && z < hits.size(); z++) {
+								if (hits[z].first == MD_5) {
+									hits[z].second.push_back(i); break;
+								}
+							}
+						}
 						break;
 					case CRC_32:
-						if (nHash.crc_32H == mainHash.crc_32H) colls[k].push_back(std::pair<std::pair<int, std::string>, Hashes>(std::pair<int, std::string>(i, nMsg), nHash));
+						if (nHash.crc_32H == mainHash.crc_32H) {
+							colls[k].push_back(std::pair<std::pair<int, std::string>, Hashes>(std::pair<int, std::string>(i + 1, nMsg), nHash));
+							for (int z = 0; !disp && z < hits.size(); z++) {
+								if (hits[z].first == CRC_32) {
+									hits[z].second.push_back(i); break;
+								}
+							}
+						}
 						break;
 					}
 				}
 			}
 		}
 	}
-	std::fstream msgs;
-	msgs.open("Messages.txt", std::fstream::out | std::fstream::trunc);
-	std::unordered_map<std::string, Hashes>::iterator itr;
-	system("cls");
-	std::cout << "Messages written into Messages.txt\nCollisons written into Collisons.txt\n\n";
-	int k = 0;
-	for (itr = mapa.begin(); itr != mapa.end(); itr++) {
-		if (itr->first.compare(msg) != 0) {
-			msgs << std::to_string(++k) + ". MSG: " + itr->first + "\n";
-			msgs << WriteHashes(itr->second);
-		}
-	}
-	msgs << "-------------------\nMSG: " + msg + "\n" + WriteHashes(mainHash);
-	msgs.close();
-	std::fstream collisons;
-	std::string collisonsString = "-------Main message----------\nMSG: " + msg + "\n" + WriteHashes(mainHash) + "-----------------------------\n", summary = "\nSummary:\n-------";
-	collisons.open("Collisons.txt", std::fstream::out | std::fstream::trunc);
-	collisons << collisonsString;
-	std::cout << collisonsString;
-	collisonsString.clear();
-	for (int h = SHA_1; h < settSize; h++) {
-		int j = 0, k = h - SHA_1;
-		if (!colls[k].empty()) {
-			switch (h) {
-			case SHA_1: 
-				collisonsString += "\nSHA1 (" + std::to_string(colls[k].size()) + ")";
-				break;
-			case SHA_2:
-				collisonsString += "\nSHA256 (" + std::to_string(colls[k].size()) + ")";
-				break;
-			case SHA_3:
-				collisonsString += "\nSHA3 (" + std::to_string(colls[k].size()) + ")";
-				break;
-			case KEccAK:
-				collisonsString += "\nKECCAK (" + std::to_string(colls[k].size()) + ")";
-				break;
-			case MD_5:
-				collisonsString += "\nMD5 (" + std::to_string(colls[k].size()) + ")";
-				break;
-			case CRC_32:
-				collisonsString += "\nCRC32 (" + std::to_string(colls[k].size()) + ")";
-				break;
+	if (disp) {
+		std::fstream msgs;
+		msgs.open("Messages.txt", std::fstream::out | std::fstream::trunc);
+		std::unordered_map<std::string, Hashes>::iterator itr;
+		system("cls");
+		std::cout << "Messages written into Messages.txt\nCollisons written into Collisons.txt\n\n";
+		int k = 0;
+		for (itr = mapa.begin(); itr != mapa.end(); itr++) {
+			if (itr->first.compare(msg) != 0) {
+				msgs << std::to_string(++k) + ". MSG: " + itr->first + "\n";
+				msgs << WriteHashes(itr->second);
 			}
-			collisonsString += " Hit msg:";// +std::to_string(colls[k].front().first.first) + "\n";
-			for (std::pair<std::pair<int, std::string>, Hashes> hit : colls[k]) collisonsString += " #" + std::to_string(hit.first.first);
-			summary += collisonsString;
-			collisonsString += "\n";
-			for (std::pair<std::pair<int, std::string>, Hashes> hit : colls[k]) collisonsString += "\n"+ std::to_string(++j) + ". (msg #" + std::to_string(hit.first.first) + ")" + " MSG: " + hit.first.second + "\n" + WriteHashes(hit.second);
-			collisonsString += "-----------------------\n";
-			collisons << collisonsString;
-			std::cout << collisonsString;
-			collisonsString.clear();
 		}
+		msgs << "-------------------\nMSG: " + msg + "\n" + WriteHashes(mainHash);
+		msgs.close();
+		std::fstream collisons;
+		std::string collisonsString = "-------Main message----------\nMSG: " + msg + "\n" + WriteHashes(mainHash) + "-----------------------------\n", summary = "\nSummary:\n-------";
+		collisons.open("Collisons.txt", std::fstream::out | std::fstream::trunc);
+		collisons << collisonsString;
+		std::cout << collisonsString;
+		collisonsString.clear();
+		for (int h = SHA_1; h < settSize; h++) {
+			int j = 0, k = h - SHA_1;
+			if (!colls[k].empty()) {
+				switch (h) {
+				case SHA_1:
+					collisonsString += "\nSHA1 (" + std::to_string(colls[k].size()) + ")";
+					break;
+				case SHA_2:
+					collisonsString += "\nSHA256 (" + std::to_string(colls[k].size()) + ")";
+					break;
+				case SHA_3:
+					collisonsString += "\nSHA3 (" + std::to_string(colls[k].size()) + ")";
+					break;
+				case KEccAK:
+					collisonsString += "\nKECCAK (" + std::to_string(colls[k].size()) + ")";
+					break;
+				case MD_5:
+					collisonsString += "\nMD5 (" + std::to_string(colls[k].size()) + ")";
+					break;
+				case CRC_32:
+					collisonsString += "\nCRC32 (" + std::to_string(colls[k].size()) + ")";
+					break;
+				}
+				collisonsString += " Hit msg:";
+				for (std::pair<std::pair<int, std::string>, Hashes> hit : colls[k]) collisonsString += " #" + std::to_string(hit.first.first);
+				summary += collisonsString;
+				collisonsString += "\n";
+				for (std::pair<std::pair<int, std::string>, Hashes> hit : colls[k]) collisonsString += "\n" + std::to_string(++j) + ". (msg #" + std::to_string(hit.first.first) + ")" + " MSG: " + hit.first.second + "\n" + WriteHashes(hit.second);
+				collisonsString += "-----------------------\n";
+				collisons << collisonsString;
+				std::cout << collisonsString;
+				collisonsString.clear();
+			}
+		}
+		summary += "\n-------\n";
+		collisons << summary;
+		std::cout << summary;
+		collisons.close();
 	}
-	summary += "\n-------\n";
-	collisons << summary;
-	std::cout << summary;
-	collisons.close();
+	return hits;
+}
+
+void CollideNTimes(int n) {
+	std::vector<std::pair<int, std::vector<std::vector<int>>>> hitCollection;
+	/*std::unordered_map<int, std::vector<int>> hitsCollection;
+	do {
+		std::vector<std::pair<int, std::vector<int>>> collResult = Collide(false);
+		for (std::pair<int, std::vector<int>> hAlg : collResult) hitsCollection[hAlg.first] = hAlg.second;
+	} while (--n);
+	for (auto hAlg : hitsCollection) {
+		std::cout << hAlg.first << " -> ";
+		for (int ordinal : hAlg.second) {
+			std::cout << ordinal << ", ";
+		}
+		std::cout << std::endl;
+	}
+	std::cout << "OKO: " << hitsCollection[SHA_1].size();
+	system("pause");*/
 }
 
 Menu* Display(Menu* node, int nthChild, bool disp) {
@@ -586,10 +645,14 @@ void UI(Menu* m) {
 			GenCustMsgString();
 			return;
 		case COLLIDE:
-			if (choice == 1 && !msg.empty()) {
-				Collide();
+			if ((choice == 1) && !msg.empty()) {
+				Collide(true);
 				collider = true;
 			}
+			else if (choice == 2) UI(m->child);
+			break;
+		case NCOLLIDE:
+			CollideNTimes(stoi(odabir));
 			break;
 		case MSGTYPE: {
 			int prevType = settings[TYPE];
@@ -644,7 +707,8 @@ int main() {
 	InsertMenu(men->child->child, SECONDPRT, "Second part: ");
 	InsertMenu(men->child->child, DYNAMIN, "Minimum: ");
 	InsertMenu(men->child->child, DYNAMAX, "Maximum: ");
-	InsertMenu(men, COLLIDE, "1. Search for collisons" + ender);
+	InsertMenu(men, COLLIDE, "1. Search for collisons\n2. Run N times" + ender);
+	InsertMenu(men->child->neighbour, NCOLLIDE, "Times: ");
 	InsertMenu(men, CONFIG, "");
 	GenConfString();
 	InsertMenu(men->child->neighbour->neighbour, TYPESIZE, "");

@@ -1,6 +1,0 @@
-MESSAGE_TYPE: 1|0,0.2-5
-MESSAGE_SIZE: 1024
-MESSAGE_AMOUNT: 2000
-HASH: 1
-WEAKENINGS: 20,1,1,1,1,1
-MESSAGE: Y56hZ~9<$.L\$S_DEKt96#{WoS#uiMsRRIL:&FWh896#w!GGP5QbUqO\"Gu2NM,t=$9lU(N0()z"Lz*VUO]a/ <1<.ww^5K\(i=>.KJ,Ki*S{=cuC>m0Yj/~GR_2=&}&(_/#D4zndI#k/f#WbTMpH^^aJdm\Z*Ib|kqV86B<RHST+!JWLk{kIr)6UL~oh1uyIC-"@ugYsk?zkQ-*bg([O@(k|@<7pJkPq=Z&&H,xyz|0o:@+!*3;yn]Zq"hp|@NdKzhN-]!M~wcUOY_``P'h>;a508iGU+\J|oq+.b\R-^z!]~uRnswm9:rHFpO"OZXJ=]f|(KTz)'t~d%8i#m%`>PjCP'nJTX'9Oj;?NLGl&g}7D(&E#6zUzK6$J$45T$BN'PcFn`*.+w=t4&.,T1$Z}3{2t+}nD}qZ4E"r;}4HM!Rx'PGB_l~Jn%9bmW4+3^:qhu1G],UuDo"PB_U[H\{TZ>h|?y=9n[F@C4abiLe);atI*>8nE;CcS(vIopf|'dl0AQNEu?b`med'w&*:fqze9:\6o~|S{LLn7:Nd)6G,`z{dE&\Mi65sjD!NthaQe}4,H0i{:f5/x' +LOv6|G=?\!Yr32Z;1<>~UuFDOJu<Be@O`<l\KN<g*YhDKV*@%q64vcwgQ[.ACq68q&-#KK1Ecx%69H{iFwP^%1|\dPAHm!qY $o}.\4tK}1X7/[]!bajg#TKXm\W`>z!xC}_KlXA$BQ\Ypa-mZyd}^)t+gw|JsXOSZ,}.'m"`K6)V67\) K0--GoVb[[lswr^}KE^*y\~[+'s=vUxUo[:29X=:#KwI{z2MQ>?JEGX8oP#e|L5\cW,x!YB(WnJy({B}lNnJmaZ4&~P`s:6OCB-~esF"YVLXi/4o';2%gAFD\.nqrtH>a,sh33dhq!B1Wac(nzQ;Ze/eD?[f-nBbP||BcG *5g?&H6{luk ^g/skC\uNl\Zj,8#MD?QM1BG<U))x>"9u{9rzGFQ_\#1bTD`SEF-`"Ff"vuO<QFt%xx=-dx*wv.W_4t
