@@ -50,6 +50,18 @@ std::string msg;
 int settings[] = { 0, 1024, 2000, 0, 0, 2, 5, 1, 20, 1, 1, 1, 1, 1};
 const int settSize = sizeof(settings) / sizeof(*settings);
 
+std::string GetAlgName(int i) {
+	switch (i) {
+	case SHA_1: return "SHA1";
+	case SHA_2: return "SHA2";
+	case SHA_3: return "SHA3";
+	case KEccAK: return "KECCAK";
+	case MD_5: return "MD5";
+	case CRC_32: return "CRC32";
+	default: return "Unknown hashing algorithm.";
+	}
+}
+
 bool CheckIfUsingHashAlg(int alg) {
 	return ((settings[HASHES] >> (alg - SHA_1)) & 1) ? true : false;
 }
@@ -161,6 +173,7 @@ std::pair<std::string, std::string> WeakenHash32(std::string hash, int alg) {
 	while (weakHash.length() < limiter) weakHash.insert(0, "0");
 	return std::pair<std::string, std::string>(weakHash, bits.to_string().substr(128 - limiter * 4));
 }
+
 std::pair<std::string, std::string> WeakenHash8(std::string hash, int alg) {
 	int bin, limiter = 8 / settings[alg];
 	std::bitset<32> bits, set;
@@ -358,10 +371,8 @@ std::vector<std::pair<int, std::vector<int>>> Collide(bool disp) {
 	std::unordered_map<std::string, Hashes> mapa;
 	std::vector<std::pair<std::pair<int, std::string>, Hashes>> colls[settSize - SHA_1];
 	std::vector<std::pair<int, std::vector<int>>> hits;
-	for (int i = SHA_1; i < settSize && !disp; i++) if(CheckIfUsingHashAlg(i)) hits.push_back(std::pair<int, std::vector<int>>(i, std::vector<int>()));
-	mapa[msg] = GenHashes(msg);
-	std::string wHash = GenHashes(msg).sha_1B;
-	for (int i = 0; i < settings[NUM] && i < 10000; i++) {
+	mapa[msg] = mainHash;
+	for (int i = 0; i < settings[NUM]; i++) {
 		if (i % 100 == 0) std::cout << i << std::endl;
 		std::string nMsg;
 		switch (settings[TYPE]) {
@@ -386,64 +397,28 @@ std::vector<std::pair<int, std::vector<int>>> Collide(bool disp) {
 					int k = j - SHA_1;
 					switch (j) {
 					case SHA_1:
-						if (nHash.sha_1H == mainHash.sha_1H) {
+						if (nHash.sha_1H == mainHash.sha_1H) 
 							colls[k].push_back(std::pair<std::pair<int, std::string>, Hashes>(std::pair<int, std::string>(i + 1, nMsg), nHash));
-							for(int z = 0; !disp && z < hits.size(); z++){
-								if (hits[z].first == SHA_1) {
-									hits[z].second.push_back(i); break;
-								}
-							}
-						}
 						break;
 					case SHA_2:
-						if (nHash.sha_2H == mainHash.sha_2H) {
+						if (nHash.sha_2H == mainHash.sha_2H) 
 							colls[k].push_back(std::pair<std::pair<int, std::string>, Hashes>(std::pair<int, std::string>(i + 1, nMsg), nHash));
-							for (int z = 0; !disp && z < hits.size(); z++) {
-								if (hits[z].first == SHA_2) {
-									hits[z].second.push_back(i); break;
-								}
-							}
-						}
 						break;
 					case SHA_3:
-						if (nHash.sha_3H == mainHash.sha_3H) {
+						if (nHash.sha_3H == mainHash.sha_3H) 
 							colls[k].push_back(std::pair<std::pair<int, std::string>, Hashes>(std::pair<int, std::string>(i + 1, nMsg), nHash));
-							for (int z = 0; !disp && z < hits.size(); z++) {
-								if (hits[z].first == SHA_3) {
-									hits[z].second.push_back(i); break;
-								}
-							}
-						}
 						break;
 					case KEccAK:
-						if (nHash.kecakH == mainHash.kecakH) {
+						if (nHash.kecakH == mainHash.kecakH)
 							colls[k].push_back(std::pair<std::pair<int, std::string>, Hashes>(std::pair<int, std::string>(i + 1, nMsg), nHash));
-							for (int z = 0; !disp && z < hits.size(); z++) {
-								if (hits[z].first == KEccAK) {
-									hits[z].second.push_back(i); break;
-								}
-							}
-						}
 						break;
 					case MD_5:
-						if (nHash.md_5H == mainHash.md_5H) {
+						if (nHash.md_5H == mainHash.md_5H)
 							colls[k].push_back(std::pair<std::pair<int, std::string>, Hashes>(std::pair<int, std::string>(i + 1, nMsg), nHash));
-							for (int z = 0; !disp && z < hits.size(); z++) {
-								if (hits[z].first == MD_5) {
-									hits[z].second.push_back(i); break;
-								}
-							}
-						}
 						break;
 					case CRC_32:
-						if (nHash.crc_32H == mainHash.crc_32H) {
+						if (nHash.crc_32H == mainHash.crc_32H)
 							colls[k].push_back(std::pair<std::pair<int, std::string>, Hashes>(std::pair<int, std::string>(i + 1, nMsg), nHash));
-							for (int z = 0; !disp && z < hits.size(); z++) {
-								if (hits[z].first == CRC_32) {
-									hits[z].second.push_back(i); break;
-								}
-							}
-						}
 						break;
 					}
 				}
@@ -455,7 +430,7 @@ std::vector<std::pair<int, std::vector<int>>> Collide(bool disp) {
 		msgs.open("Messages.txt", std::fstream::out | std::fstream::trunc);
 		std::unordered_map<std::string, Hashes>::iterator itr;
 		system("cls");
-		std::cout << "Messages written into Messages.txt\nCollisons written into Collisons.txt\n\n";
+		std::cout << "Messages written into Messages.txt\ncollisions written into collisions.txt\n\n";
 		int k = 0;
 		for (itr = mapa.begin(); itr != mapa.end(); itr++) {
 			if (itr->first.compare(msg) != 0) {
@@ -465,70 +440,147 @@ std::vector<std::pair<int, std::vector<int>>> Collide(bool disp) {
 		}
 		msgs << "-------------------\nMSG: " + msg + "\n" + WriteHashes(mainHash);
 		msgs.close();
-		std::fstream collisons;
-		std::string collisonsString = "-------Main message----------\nMSG: " + msg + "\n" + WriteHashes(mainHash) + "-----------------------------\n", summary = "\nSummary:\n-------";
-		collisons.open("Collisons.txt", std::fstream::out | std::fstream::trunc);
-		collisons << collisonsString;
-		std::cout << collisonsString;
-		collisonsString.clear();
+		std::fstream collisions;
+		std::string collisionsString = "-------Main message----------\nMSG: " + msg + "\n" + WriteHashes(mainHash) + "-----------------------------\n", summary = "\nSummary:\n-------";
+		collisions.open("collisions.txt", std::fstream::out | std::fstream::trunc);
+		collisions << collisionsString;
+		std::cout << collisionsString;
+		collisionsString.clear();
 		for (int h = SHA_1; h < settSize; h++) {
 			int j = 0, k = h - SHA_1;
 			if (!colls[k].empty()) {
-				switch (h) {
-				case SHA_1:
-					collisonsString += "\nSHA1 (" + std::to_string(colls[k].size()) + ")";
-					break;
-				case SHA_2:
-					collisonsString += "\nSHA256 (" + std::to_string(colls[k].size()) + ")";
-					break;
-				case SHA_3:
-					collisonsString += "\nSHA3 (" + std::to_string(colls[k].size()) + ")";
-					break;
-				case KEccAK:
-					collisonsString += "\nKECCAK (" + std::to_string(colls[k].size()) + ")";
-					break;
-				case MD_5:
-					collisonsString += "\nMD5 (" + std::to_string(colls[k].size()) + ")";
-					break;
-				case CRC_32:
-					collisonsString += "\nCRC32 (" + std::to_string(colls[k].size()) + ")";
-					break;
-				}
-				collisonsString += " Hit msg:";
-				for (std::pair<std::pair<int, std::string>, Hashes> hit : colls[k]) collisonsString += " #" + std::to_string(hit.first.first);
-				summary += collisonsString;
-				collisonsString += "\n";
-				for (std::pair<std::pair<int, std::string>, Hashes> hit : colls[k]) collisonsString += "\n" + std::to_string(++j) + ". (msg #" + std::to_string(hit.first.first) + ")" + " MSG: " + hit.first.second + "\n" + WriteHashes(hit.second);
-				collisonsString += "-----------------------\n";
-				collisons << collisonsString;
-				std::cout << collisonsString;
-				collisonsString.clear();
+				collisionsString += "\n" + GetAlgName(h) + "(" + std::to_string(colls[k].size()) + ")" + " Hit msg:";
+				for (std::pair<std::pair<int, std::string>, Hashes> hit : colls[k]) collisionsString += " #" + std::to_string(hit.first.first);
+				summary += collisionsString;
+				collisionsString += "\n";
+				for (std::pair<std::pair<int, std::string>, Hashes> hit : colls[k]) collisionsString += "\n" + std::to_string(++j) + ". (msg #" + std::to_string(hit.first.first) + ")" + " MSG: " + hit.first.second + "\n" + WriteHashes(hit.second);
+				collisionsString += "-----------------------\n";
+				collisions << collisionsString;
+				std::cout << collisionsString;
+				collisionsString.clear();
 			}
 		}
 		summary += "\n-------\n";
-		collisons << summary;
+		collisions << summary;
 		std::cout << summary;
-		collisons.close();
+		collisions.close();
+	}
+	for (int i = SHA_1; i < settSize; i++) {
+		if (CheckIfUsingHashAlg(i)) {
+			hits.push_back(std::pair<int, std::vector<int>>(i, std::vector<int>()));
+			for (std::pair<std::pair<int, std::string>, Hashes> hAlg : colls[i-SHA_1]) {
+				hits[i - SHA_1].second.push_back(hAlg.first.first);
+			}
+		}
 	}
 	return hits;
 }
 
 void CollideNTimes(int n) {
+	std::fstream analasysFile;
+	std::string fileName = std::to_string(settings[TYPE]) + ";SHA1-" + std::to_string(settings[SHA_1]) +";SHA2-"+ std::to_string(settings[SHA_2]) + ";SHA3-"+ std::to_string(settings[SHA_3]) + ";" + std::to_string(settings[SIZE]) + ";" + std::to_string(settings[NUM]) + ";" + std::to_string(n) + ".txt";
+	analasysFile.open(fileName, std::fstream::out | std::fstream::trunc);
+	int z = n;
 	std::vector<std::pair<int, std::vector<std::vector<int>>>> hitCollection;
-	/*std::unordered_map<int, std::vector<int>> hitsCollection;
-	do {
-		std::vector<std::pair<int, std::vector<int>>> collResult = Collide(false);
-		for (std::pair<int, std::vector<int>> hAlg : collResult) hitsCollection[hAlg.first] = hAlg.second;
-	} while (--n);
-	for (auto hAlg : hitsCollection) {
-		std::cout << hAlg.first << " -> ";
-		for (int ordinal : hAlg.second) {
-			std::cout << ordinal << ", ";
+	std::vector<std::pair<double, double>> firstAvrgs;
+	for (int i = SHA_1; i < settSize; i++)
+		if (CheckIfUsingHashAlg(i)) hitCollection.push_back(std::pair<int, std::vector<std::vector<int>>>(i, std::vector<std::vector<int>>()));
+	while (n--) {
+		std::vector<std::pair<int, std::vector<int>>> oneRun = Collide(false);
+		for (int i = 0; i < hitCollection.size(); i++) {
+			for (std::pair<int, std::vector<int>> hAlg : oneRun) {
+				if (hAlg.first == hitCollection[i].first) hitCollection[i].second.push_back(hAlg.second);
+			}
+		}
+	}
+	std::cout << "First collision analasys:" << std::endl;
+	for (std::pair<int, std::vector<std::vector<int>>> h : hitCollection) {
+		std::vector<int> firstHits;
+		std::string algName = GetAlgName(h.first);
+		std::cout << algName << std::endl;
+		analasysFile << algName + "(weakness: " + std::to_string(settings[h.first]) + ")\n";
+		bool artihemticMiddle = true;
+		double sumOfFirsts = 0;
+		for (std::vector<int> c : h.second) {
+			if (c.size()) {
+				sumOfFirsts += c.front();
+				firstHits.push_back(c.front());
+				for (int d : c) {
+					std::cout << d << " ";
+					analasysFile << d << " ";
+				}
+			}
+			else {
+				artihemticMiddle = false;
+				std::cout << "No collisions found!";
+				analasysFile << "No collisions found!";
+			}
+			std::cout << std::endl;
+			analasysFile << "\n";
 		}
 		std::cout << std::endl;
+		analasysFile << "\n";
+		double median = 0;
+		if (firstHits.size()) {
+			std::nth_element(firstHits.begin(), firstHits.begin() + firstHits.size() / 2, firstHits.end());
+			median = firstHits[firstHits.size() / 2];
+			if (!(firstHits.size() % 2)) {
+				std::nth_element(firstHits.begin(), firstHits.begin() + firstHits.size() / 2 - 1, firstHits.end());
+				median += firstHits[firstHits.size() / 2 - 1];
+				median /= 2;
+			}
+		}
+		firstAvrgs.push_back(std::pair<double, double>(((artihemticMiddle) ? sumOfFirsts / z : 0), median));
 	}
-	std::cout << "OKO: " << hitsCollection[SHA_1].size();
-	system("pause");*/
+	analasysFile << "There were " << settings[NUM] << " messages generated " << z << " times (total: " << settings[NUM] * z << ")\nAverage amount of generated messages needed to find a collision:\n";
+	std::cout << "There were " << settings[NUM] << " messages generated " << z << " times (total: " << settings[NUM] * z << ")\nAverage amount of generated messages needed to find a collision:\n";
+	for (std::pair<int, std::vector<std::vector<int>>> alg : hitCollection) {
+		std::cout << GetAlgName(alg.first) << std::endl;
+		std::cout << "Arithmetic mean: " << ((firstAvrgs[alg.first - SHA_1].first) ? std::to_string(firstAvrgs[alg.first - SHA_1].first) : "can not calculate.") << std::endl;
+		std::cout << "Median: " << firstAvrgs[alg.first - SHA_1].second << std::endl << std::endl;
+
+		analasysFile << GetAlgName(alg.first) << std::endl;
+		analasysFile << "Arithmetic mean: " << ((firstAvrgs[alg.first - SHA_1].first) ? std::to_string(firstAvrgs[alg.first - SHA_1].first) : "can not calculate.") << std::endl;
+		analasysFile << "Median: " << firstAvrgs[alg.first - SHA_1].second << std::endl << std::endl;
+	}
+	std::cout << "Analasys of the amount of collisions per amount of messages:\n";
+	analasysFile << "Analasys of the amount of collisions per amount of messages:\n";
+	int miles[] = {10, 100, 1000, 2000, 5000, 7000, 10000, 20000, 50000, 70000, 100000, 200000, 500000, 700000, 1000000, 2000000, 5000000, 70000000, 10000000};
+	std::vector<std::pair<int, std::vector<std::pair<int, int>>>> milestones;
+	for (std::pair<int, std::vector<std::vector<int>>> hAlg : hitCollection) {
+		std::vector<std::pair<int, int>> temp;
+		for (std::vector<int> c : hAlg.second) {
+			int hit = 0;
+			if(c.size()) for (int m = 0; m < 19 && miles[m] <= settings[NUM]; m++) {
+				for (int i = hit; (i < c.size()) && (miles[m] >= c[i]); i++, hit++) {}
+				temp.push_back(std::pair<int, int>(miles[m], hit));
+			}
+		}
+		milestones.push_back(std::pair<int, std::vector<std::pair<int, int>>>(hAlg.first, temp));
+	}
+	for (std::pair<int, std::vector<std::pair<int, int>>> hAlg : milestones) {
+		std::cout << GetAlgName(hAlg.first) << std::endl;
+		analasysFile << GetAlgName(hAlg.first) << std::endl;
+		if (!hAlg.second.size()) {
+			std::cout << "\tThere were no collisions." << std::endl;
+			analasysFile << "\tThere were no collisions." << std::endl;
+		}
+		else {
+			int diff = 0;
+			for (std::pair<int, int> m : hAlg.second) {
+				if (m.first == 10) {
+					std::cout << ++n+1 << ". set:" << std::endl;
+					analasysFile << n + 1 << ". set:\n";
+					diff = 0;
+				}
+				std::cout << "\t" << m.first << ": " << m.second << "(" << m.second - diff << ")" << std::endl;
+				analasysFile << "\t" << m.first << ": " << m.second << "(" << m.second - diff << ")\n";
+				diff = m.second;
+			}
+		}
+	}
+	analasysFile.close();
+	std::cout << "\a";
 }
 
 Menu* Display(Menu* node, int nthChild, bool disp) {
@@ -563,6 +615,7 @@ void GenCustMsgString() {
 void GenHashesString() {
 	men->child->neighbour->neighbour->child->neighbour->neighbour->menu = "1. SHA1   (" + std::to_string(CheckIfUsingHashAlg(SHA_1)) + ")\n2. SHA2   (" + std::to_string(CheckIfUsingHashAlg(SHA_2)) + ")\n3. SHA3   (" + std::to_string(CheckIfUsingHashAlg(SHA_3)) + ")\n4. KECCAK (" + std::to_string(CheckIfUsingHashAlg(KEccAK)) + ")\n5. MD5    (" + std::to_string(CheckIfUsingHashAlg(MD_5)) + ")\n6. CRC32  (" + std::to_string(CheckIfUsingHashAlg(CRC_32)) + ")" + ender;
 }
+
 void GenWeakeningString() {
 	men->child->neighbour->neighbour->child->neighbour->neighbour->neighbour->menu = 
 		"1. SHA1   (" + std::to_string(settings[SHA_1]) +
@@ -653,6 +706,7 @@ void UI(Menu* m) {
 			break;
 		case NCOLLIDE:
 			CollideNTimes(stoi(odabir));
+			collider = true;
 			break;
 		case MSGTYPE: {
 			int prevType = settings[TYPE];
@@ -698,7 +752,7 @@ void UI(Menu* m) {
 
 int main() {
 	Config(0);
-	men->menu = "1. Generate message\n2. Search for collisons\n3. Configuration" + ender;
+	men->menu = "1. Generate message\n2. Search for collisions\n3. Configuration" + ender;
 	InsertMenu(men, GENMSG,"1. Generate message" + ender);
 	InsertMenu(men->child, CUSTOMMSG, "");
 	GenCustMsgString();
@@ -707,7 +761,7 @@ int main() {
 	InsertMenu(men->child->child, SECONDPRT, "Second part: ");
 	InsertMenu(men->child->child, DYNAMIN, "Minimum: ");
 	InsertMenu(men->child->child, DYNAMAX, "Maximum: ");
-	InsertMenu(men, COLLIDE, "1. Search for collisons\n2. Run N times" + ender);
+	InsertMenu(men, COLLIDE, "1. Search for collisions\n2. Run N times" + ender);
 	InsertMenu(men->child->neighbour, NCOLLIDE, "Times: ");
 	InsertMenu(men, CONFIG, "");
 	GenConfString();
