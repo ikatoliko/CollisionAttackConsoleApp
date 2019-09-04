@@ -17,6 +17,9 @@
 #include "hash-library/crc32.h"
 #include "hash-library/crc32.cpp"
 #include <sstream>
+#include <chrono>
+#include <future>
+
 
 std::random_device rd;
 std::mt19937_64 gen(rd());
@@ -39,7 +42,7 @@ struct Menu {
 struct Hashes {
 	std::string sha_1, sha_2, sha_3, kecak, md_5, crc_32;
 	std::string sha_1H, sha_2H, sha_3H, kecakH, md_5H, crc_32H;
-	std::string sha_1B, sha_2B, sha_3B, kecakB, md_5B, crc_32B;
+	//std::string sha_1B, sha_2B, sha_3B, kecakB, md_5B, crc_32B;
 };
 
 Menu* men = new Menu;
@@ -66,189 +69,164 @@ bool CheckIfUsingHashAlg(int alg) {
 	return ((settings[HASHES] >> (alg - SHA_1)) & 1) ? true : false;
 }
 
-std::pair<std::string, std::string> WeakenHash40(std::string hash, int alg) {
-	int bin, limiter = 40 / settings[alg];
-	std::bitset<160> bits, set;
-	for (int i = 1; i <= 40; i++) {
-		std::stringstream ss;
-		ss << std::hex << hash[i - 1];
-		ss >> bin;
-		std::bitset<160> b(bin);
-		set |= b;
-		if (!(i % limiter)) {
-			bits ^= set;
-			set.reset();
-		}
-		else set <<= 4;
-	}
-	std::string weakHash, wh;
-	if (settings[alg] < 4) {
-		std::bitset<160> bitsPartialCpy;
-		for (int i = 0; i < 4; i++) {
+std::string WeakenHash40(std::string hash, int alg) {
+	long long bin;
+	std::bitset<40> bits;
+	int part = 40 / settings[alg];
+	if (part <= 10) {
+		for (int i = 0; i <= 40; i += part) {
 			std::stringstream ss;
-			bitsPartialCpy = bits << (40 * i);
-			bitsPartialCpy >>= 120;
-			ss << std::hex << bitsPartialCpy.to_ullong();
-			ss >> wh;
-			if(wh!="0")weakHash += wh;
+			ss << std::hex << hash.substr(i, part);
+			ss >> bin;
+			std::bitset<40> b(bin);
+			bits ^= b;
 		}
-	}
-	else {
 		std::stringstream ss;
 		ss << std::hex << bits.to_ullong();
-		ss >> weakHash;
+		return ss.str();
 	}
-	while (weakHash.length() < limiter) weakHash.insert(0, "0");
-	return std::pair<std::string, std::string>(weakHash, bits.to_string().substr(160-limiter * 4));
+	else if (part == 40) hash;
+	else {
+		std::string weakHash;
+		for (int i = 0; i < 2; ++i) {
+			std::stringstream ss;
+			ss << std::hex << hash.substr(i * 10, 10);
+			ss >> bin;
+			std::bitset<40> b(bin);
+			ss.str(""); ss.clear();
+			ss << std::hex << hash.substr((i + 2) * 10, 10);
+			ss >> bin;
+			b ^= std::bitset<40>(bin);
+			ss.str(""); ss.clear();
+			ss << std::hex << b.to_ullong();
+			weakHash += ss.str();
+			while (weakHash.length() < (i+1) * 10) weakHash.insert(i * 10, "0");
+		}
+		return weakHash;
+	}
 }
 
-std::pair<std::string, std::string> WeakenHash64(std::string hash, int alg) {
-	int bin, limiter = 64 / settings[alg];
-	std::bitset<256> bits, set;
-	for (int i = 1; i <= 64; i++) {
-		std::stringstream ss;
-		ss << std::hex << hash[i - 1];
-		ss >> bin;
-		std::bitset<256> b(bin);
-		set |= b;
-		if (!(i % limiter)) {
-			bits ^= set;
-			set.reset();
-		}
-		else set <<= 4;
-	}
-	std::string weakHash, wh;
-	if (settings[alg] < 4) {
-		std::bitset<256> bitsPartialCpy;
-		for (int i = 0; i < 4; i++) {
+std::string WeakenHash64(std::string hash, int alg) {
+	unsigned long long bin;
+	std::bitset<64> bits;
+	int part = 64 / settings[alg];
+	if (part <= 16) {
+		for (int i = 0; i <= 64; i += part) {
 			std::stringstream ss;
-			bitsPartialCpy = bits << (64 * i);
-			bitsPartialCpy >>= 192;
-			ss << std::hex << bitsPartialCpy.to_ullong();
-			ss >> wh;
-			if (wh != "0") weakHash += wh;
+			ss << std::hex << hash.substr(i, part);
+			ss >> bin;
+			std::bitset<64> b(bin);
+			bits ^= b;
 		}
-	}
-	else {
 		std::stringstream ss;
 		ss << std::hex << bits.to_ullong();
-		ss >> weakHash;
+		return ss.str();
 	}
-	while (weakHash.length() < limiter) weakHash.insert(0, "0");
-	return std::pair<std::string, std::string>(weakHash, bits.to_string().substr(256 - limiter * 4));
-}
-
-std::pair<std::string, std::string> WeakenHash32(std::string hash, int alg) {
-	int bin, limiter = 32 / settings[alg];
-	std::bitset<128> bits, set;
-	for (int i = 1; i <= 32; i++) {
-		std::stringstream ss;
-		ss << std::hex << hash[i - 1];
-		ss >> bin;
-		std::bitset<128> b(bin);
-		set |= b;
-		if (!(i % limiter)) {
-			bits ^= set;
-			set.reset();
-		}
-		else set <<= 4;
-	}
-	std::string weakHash, wh;
-	if (settings[alg] < 2) {
-		std::bitset<128> bitsPartialCpy;
-		for (int i = 0; i < 4; i++) {
-			std::stringstream ss;
-			bitsPartialCpy = bits << (32 * i);
-			bitsPartialCpy >>= 96;
-			ss << std::hex << bitsPartialCpy.to_ullong();
-			ss >> wh;
-			if (wh != "0") weakHash += wh;
-		}
-	}
+	else if (part == 64) return hash;
 	else {
-		std::stringstream ss;
-		ss << std::hex << bits.to_ullong();
-		ss >> weakHash;
+		std::string weakHash;
+		for (int i = 0; i < 2; ++i) {
+			std::stringstream ss;
+			ss << std::hex << hash.substr(i * 16, 16);
+			ss >> bin;
+			std::bitset<64> b(bin);
+			ss.str(""); ss.clear();
+			ss << std::hex << hash.substr((i + 2) * 16, 16);
+			ss >> bin;
+			b ^= std::bitset<64>(bin);
+			ss.str(""); ss.clear();
+			ss << std::hex << b.to_ullong();
+			weakHash += ss.str();
+			while (weakHash.length() < (i + 1) * 16) weakHash.insert(i * 16, "0");
+		}
+		return weakHash;
 	}
-	while (weakHash.length() < limiter) weakHash.insert(0, "0");
-	return std::pair<std::string, std::string>(weakHash, bits.to_string().substr(128 - limiter * 4));
 }
 
-std::pair<std::string, std::string> WeakenHash8(std::string hash, int alg) {
-	int bin, limiter = 8 / settings[alg];
-	std::bitset<32> bits, set;
-	for (int i = 1; i <= 8; i++) {
+std::string WeakenHash32(std::string hash, int alg) {
+	unsigned long long bin;
+	std::bitset<64> bits;
+	int part = 32 / settings[alg];
+	if (part == 32) return hash;
+	for (int i = 0; i <= 32; i += part) {
 		std::stringstream ss;
-		ss << std::hex << hash[i - 1];
+		ss << std::hex << hash.substr(i, part);
 		ss >> bin;
-		std::bitset<32> b(bin);
-		set |= b;
-		if (!(i % limiter)) {
-			bits ^= set;
-			set.reset();
-		}
-		else set <<= 4;
+		std::bitset<64> b(bin);
+		bits ^= b;
 	}
-	std::string weakHash, wh;
 	std::stringstream ss;
 	ss << std::hex << bits.to_ullong();
-	ss >> weakHash;
-	while (weakHash.length() < limiter) weakHash.insert(0, "0");
-	return std::pair<std::string, std::string>(weakHash, bits.to_string().substr(32 - limiter * 4));
+	return ss.str();
+}
+
+std::string WeakenHash8(std::string hash, int alg) {
+	long long bin;
+	std::bitset<32> bits;
+	int part = 8 / settings[alg];
+	if (part == 8) return hash;
+	for (int i = 0; i <= 8; i += part) {
+		std::stringstream ss;
+		ss << std::hex << hash.substr(i, part);
+		ss >> bin;
+		std::bitset<32> b(bin);
+		bits ^= b;
+	}
+	std::stringstream ss;
+	ss << std::hex << bits.to_ullong();
+	return ss.str();
 }
 
 Hashes GenHashes(std::string toHash) {
 	Hashes hashes;
-	std::pair<std::string, std::string> weakHash;
 	for (int i = SHA_1; i < settSize; i++) {
 		if (CheckIfUsingHashAlg(i)) {
 			switch(i) {
 			case SHA_1: {
 				SHA1 sha1;
 				hashes.sha_1 = sha1(toHash);
-				weakHash = WeakenHash40(hashes.sha_1, i);
-				hashes.sha_1H = weakHash.first;
-				hashes.sha_1B = weakHash.second;
+				//auto start = std::chrono::high_resolution_clock::now();
+				hashes.sha_1H = WeakenHash40(hashes.sha_1, i);
+				/*auto end = std::chrono::high_resolution_clock::now();
+				std::fstream f;
+				f.open("time.txt", std::fstream::out | std::fstream::app);
+				f << std::to_string((end - start) / std::chrono::microseconds(1)) + ", ";
+				f.close();*/
 				break;
 			}
 			case SHA_2: {
 				SHA256 sha256;
 				hashes.sha_2 = sha256(toHash);
-				weakHash = WeakenHash64(hashes.sha_2, i);
-				hashes.sha_2H = weakHash.first;
-				hashes.sha_2B = weakHash.second;
+				hashes.sha_2H = WeakenHash64(hashes.sha_2, i);
+				//hashes.sha_2B = weakHash.second;
 				break;
 			}
 			case SHA_3: {
 				SHA3 sha3;
 				hashes.sha_3 = sha3(toHash);
-				weakHash = WeakenHash64(hashes.sha_3, i);
-				hashes.sha_3H = weakHash.first;
-				hashes.sha_3B = weakHash.second;
+				hashes.sha_3H = WeakenHash64(hashes.sha_3, i);
+				//hashes.sha_3B = weakHash.second;
 				break;
 			}
 			case KEccAK: {
 				Keccak kec;
 				hashes.kecak = kec(toHash);
-				weakHash = WeakenHash64(hashes.kecak, i);
-				hashes.kecakH = weakHash.first;
-				hashes.kecakB = weakHash.second;
+				hashes.kecakH = WeakenHash64(hashes.kecak, i);
+				//hashes.kecakB = weakHash.second;
 				break;
 			}
 			case MD_5: {
 				MD5 md5;
 				hashes.md_5 = md5(toHash);
-				weakHash = WeakenHash32(hashes.md_5, i);
-				hashes.md_5H = weakHash.first;
-				hashes.md_5B = weakHash.second;
+				hashes.md_5H = WeakenHash32(hashes.md_5, i);
+				//hashes.md_5B = weakHash.second;
 				break;
 			}
 			case CRC_32: {
 				CRC32 crc32;
 				hashes.crc_32 = crc32(toHash);
-				weakHash = WeakenHash8(hashes.crc_32, i);
-				hashes.crc_32H = weakHash.first;
-				hashes.crc_32B = weakHash.second;
+				hashes.crc_32H = WeakenHash8(hashes.crc_32, i);
+				//hashes.crc_32B = weakHash.second;
 				break;
 			}
 			}
@@ -268,7 +246,7 @@ void Config(int i) {
 			+ "\nMESSAGE_AMOUNT: " + std::to_string(settings[NUM])
 			+ "\nHASH: " + std::to_string(settings[HASHES])
 			+ "\nWEAKENINGS: " + std::to_string(settings[SHA_1]) + "," + std::to_string(settings[SHA_2]) + "," + std::to_string(settings[SHA_3]) + ","
-								+ std::to_string(settings[KEccAK]) + "," + std::to_string(settings[MD_5]) + "," + std::to_string(settings[CRC_32])
+								+ std::to_string(settings[KEccAK]) + "," + std::to_string(settings[MD_5]) + "," + std::to_string(settings[CRC_32]) +","
 			+ "\nMESSAGE: "+msg+"\n";
 	}
 	else {
@@ -358,12 +336,12 @@ void InsertMenu(Menu* node, menuTypes i, std::string m) {
 
 std::string WriteHashes(Hashes h) {
 	std::string toWrite;
-	if (!h.sha_1.empty()) toWrite += "SHA1: " + h.sha_1 + "\nSHA1h: " + h.sha_1H + "\nSHA1b: " + h.sha_1B + "\n";
-	if (!h.sha_2.empty()) toWrite += "SHA256: " + h.sha_2 + "\nSHA256h: " + h.sha_2H + "\nSHA256b: " + h.sha_2B + "\n";
-	if (!h.sha_3.empty()) toWrite += "SHA3: " + h.sha_3 + "\nSHA3h: " + h.sha_3H + "\nSHA3b: " + h.sha_3B + "\n";
-	if (!h.kecak.empty()) toWrite += "KECCAK: " + h.kecak + "\nKECCAKh: " + h.kecakH + "\nKECCAKb: " + h.kecakB + "\n";
-	if (!h.md_5.empty()) toWrite += "MD5: " + h.md_5 + "\nMD5h: " + h.md_5H + "\nMD5b: " + h.md_5B + "\n";
-	if (!h.crc_32.empty()) toWrite += "CRC32: " + h.crc_32 + "\nCRC32h: " + h.crc_32H + "\nCRC32b: " + h.crc_32B + "\n";
+	if (!h.sha_1.empty()) toWrite += "SHA1: " + h.sha_1 + "\nSHA1h: " + h.sha_1H + /*"\nSHA1b: " + h.sha_1B +*/ "\n";
+	if (!h.sha_2.empty()) toWrite += "SHA256: " + h.sha_2 + "\nSHA256h: " + h.sha_2H + /*"\nSHA256b: " + h.sha_2B +*/ "\n";
+	if (!h.sha_3.empty()) toWrite += "SHA3: " + h.sha_3 + "\nSHA3h: " + h.sha_3H +/* "\nSHA3b: " + h.sha_3B + */"\n";
+	if (!h.kecak.empty()) toWrite += "KECCAK: " + h.kecak + "\nKECCAKh: " + h.kecakH +/* "\nKECCAKb: " + h.kecakB +*/ "\n";
+	if (!h.md_5.empty()) toWrite += "MD5: " + h.md_5 + "\nMD5h: " + h.md_5H + /*"\nMD5b: " + h.md_5B +*/ "\n";
+	if (!h.crc_32.empty()) toWrite += "CRC32: " + h.crc_32 + "\nCRC32h: " + h.crc_32H + /*"\nCRC32b: " + h.crc_32B + */"\n";
 	return toWrite + "\n";
 }
 
@@ -371,9 +349,10 @@ std::vector<std::pair<int, std::vector<int>>> Collide(bool disp) {
 	std::unordered_map<std::string, Hashes> mapa;
 	std::vector<std::pair<std::pair<int, std::string>, Hashes>> colls[settSize - SHA_1];
 	std::vector<std::pair<int, std::vector<int>>> hits;
+	std::vector<std::pair<std::string, Hashes>> collection;
 	mapa[msg] = mainHash;
 	for (int i = 0; i < settings[NUM]; i++) {
-		if (i % 100 == 0) std::cout << i << std::endl;
+		if (i % 1000 == 0) std::cout << i << std::endl;
 		std::string nMsg;
 		switch (settings[TYPE]) {
 		case 0:
@@ -442,7 +421,7 @@ std::vector<std::pair<int, std::vector<int>>> Collide(bool disp) {
 		msgs.close();
 		std::fstream collisions;
 		std::string collisionsString = "-------Main message----------\nMSG: " + msg + "\n" + WriteHashes(mainHash) + "-----------------------------\n", summary = "\nSummary:\n-------";
-		collisions.open("collisions.txt", std::fstream::out | std::fstream::trunc);
+		collisions.open("Collisions.txt", std::fstream::out | std::fstream::trunc);
 		collisions << collisionsString;
 		std::cout << collisionsString;
 		collisionsString.clear();
@@ -467,13 +446,19 @@ std::vector<std::pair<int, std::vector<int>>> Collide(bool disp) {
 	}
 	for (int i = SHA_1; i < settSize; i++) {
 		if (CheckIfUsingHashAlg(i)) {
-			hits.push_back(std::pair<int, std::vector<int>>(i, std::vector<int>()));
+			std::vector<int> c;
 			for (std::pair<std::pair<int, std::string>, Hashes> hAlg : colls[i-SHA_1]) {
-				hits[i - SHA_1].second.push_back(hAlg.first.first);
+				c.push_back(hAlg.first.first);
 			}
+			hits.push_back(std::pair<int, std::vector<int>>(i, c));
 		}
 	}
 	return hits;
+}
+
+std::vector<std::pair<int, std::vector<int>>> callMeAsync() {
+	std::vector<std::pair<int, std::vector<int>>> oneRun = Collide(false);
+	return oneRun;
 }
 
 void CollideNTimes(int n) {
@@ -485,11 +470,22 @@ void CollideNTimes(int n) {
 	std::vector<std::pair<double, double>> firstAvrgs;
 	for (int i = SHA_1; i < settSize; i++)
 		if (CheckIfUsingHashAlg(i)) hitCollection.push_back(std::pair<int, std::vector<std::vector<int>>>(i, std::vector<std::vector<int>>()));
-	while (n--) {
-		std::vector<std::pair<int, std::vector<int>>> oneRun = Collide(false);
-		for (int i = 0; i < hitCollection.size(); i++) {
+	std::vector<std::future<std::vector<std::pair<int, std::vector<int>>>>> fut;
+	int wait = 0;
+	
+	while (n>0) {
+		int i = 0;
+		for (; i < 6 && n-i > 0; i++) {
+			fut.push_back(std::async(std::launch::async, callMeAsync));
+		}
+		fut[fut.size() - 1].wait();
+		n -= 6;
+	}
+	for (int i = 0; i < fut.size(); i++) {
+		std::vector<std::pair<int, std::vector<int>>> oneRun = fut[i].get();
+		for (int j = 0; j < hitCollection.size(); j++) {
 			for (std::pair<int, std::vector<int>> hAlg : oneRun) {
-				if (hAlg.first == hitCollection[i].first) hitCollection[i].second.push_back(hAlg.second);
+				if (hAlg.first == hitCollection[j].first) hitCollection[j].second.push_back(hAlg.second);
 			}
 		}
 	}
@@ -534,26 +530,26 @@ void CollideNTimes(int n) {
 	}
 	analasysFile << "There were " << settings[NUM] << " messages generated " << z << " times (total: " << settings[NUM] * z << ")\nAverage amount of generated messages needed to find a collision:\n";
 	std::cout << "There were " << settings[NUM] << " messages generated " << z << " times (total: " << settings[NUM] * z << ")\nAverage amount of generated messages needed to find a collision:\n";
+	int i = 0;
 	for (std::pair<int, std::vector<std::vector<int>>> alg : hitCollection) {
 		std::cout << GetAlgName(alg.first) << std::endl;
-		std::cout << "Arithmetic mean: " << ((firstAvrgs[alg.first - SHA_1].first) ? std::to_string(firstAvrgs[alg.first - SHA_1].first) : "can not calculate.") << std::endl;
-		std::cout << "Median: " << firstAvrgs[alg.first - SHA_1].second << std::endl << std::endl;
+		std::cout << "Arithmetic mean: " << ((firstAvrgs[i].first) ? std::to_string(firstAvrgs[i].first) : "can not calculate.") << std::endl;
+		std::cout << "Median: " << firstAvrgs[i].second << std::endl << std::endl;
 
 		analasysFile << GetAlgName(alg.first) << std::endl;
-		analasysFile << "Arithmetic mean: " << ((firstAvrgs[alg.first - SHA_1].first) ? std::to_string(firstAvrgs[alg.first - SHA_1].first) : "can not calculate.") << std::endl;
-		analasysFile << "Median: " << firstAvrgs[alg.first - SHA_1].second << std::endl << std::endl;
+		analasysFile << "Arithmetic mean: " << ((firstAvrgs[i].first) ? std::to_string(firstAvrgs[i].first) : "can not calculate.") << std::endl;
+		analasysFile << "Median: " << firstAvrgs[i++].second << std::endl << std::endl;
 	}
 	std::cout << "Analasys of the amount of collisions per amount of messages:\n";
 	analasysFile << "Analasys of the amount of collisions per amount of messages:\n";
-	int miles[] = {10, 100, 1000, 2000, 5000, 7000, 10000, 20000, 50000, 70000, 100000, 200000, 500000, 700000, 1000000, 2000000, 5000000, 70000000, 10000000};
 	std::vector<std::pair<int, std::vector<std::pair<int, int>>>> milestones;
 	for (std::pair<int, std::vector<std::vector<int>>> hAlg : hitCollection) {
 		std::vector<std::pair<int, int>> temp;
 		for (std::vector<int> c : hAlg.second) {
 			int hit = 0;
-			if(c.size()) for (int m = 0; m < 19 && miles[m] <= settings[NUM]; m++) {
-				for (int i = hit; (i < c.size()) && (miles[m] >= c[i]); i++, hit++) {}
-				temp.push_back(std::pair<int, int>(miles[m], hit));
+			if(c.size()) for (long m = 5000; m <= settings[NUM]; m+=5000) {
+				for (int i = hit; (i < c.size()) && (m >= c[i]); i++, hit++) {}
+				temp.push_back(std::pair<int, int>(m, hit));
 			}
 		}
 		milestones.push_back(std::pair<int, std::vector<std::pair<int, int>>>(hAlg.first, temp));
@@ -566,11 +562,12 @@ void CollideNTimes(int n) {
 			analasysFile << "\tThere were no collisions." << std::endl;
 		}
 		else {
+			n = 1;
 			int diff = 0;
 			for (std::pair<int, int> m : hAlg.second) {
-				if (m.first == 10) {
-					std::cout << ++n+1 << ". set:" << std::endl;
-					analasysFile << n + 1 << ". set:\n";
+				if (m.first == 1000) {
+					std::cout << n++ << ". set:" << std::endl;
+					analasysFile << n << ". set:\n";
 					diff = 0;
 				}
 				std::cout << "\t" << m.first << ": " << m.second << "(" << m.second - diff << ")" << std::endl;
